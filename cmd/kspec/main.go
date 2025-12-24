@@ -98,6 +98,15 @@ This operation is read-only and safe to run in production.`,
 		Example: `  # Scan with JSON output
   kspec scan --spec cluster-spec.yaml --output json
 
+  # Scan with OSCAL compliance report
+  kspec scan --spec cluster-spec.yaml --output oscal > report.json
+
+  # Scan with SARIF security report
+  kspec scan --spec cluster-spec.yaml --output sarif > results.sarif
+
+  # Scan with Markdown documentation
+  kspec scan --spec cluster-spec.yaml --output markdown > COMPLIANCE.md
+
   # Scan with custom kubeconfig
   kspec scan --spec cluster-spec.yaml --kubeconfig ~/.kube/prod-config`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -138,14 +147,29 @@ This operation is read-only and safe to run in production.`,
 			// Output results
 			switch outputFormat {
 			case "json":
-				reporter := reporter.NewJSONReporter(os.Stdout)
-				if err := reporter.Report(result); err != nil {
+				r := reporter.NewJSONReporter(os.Stdout)
+				if err := r.Report(result); err != nil {
+					return fmt.Errorf("failed to output results: %w", err)
+				}
+			case "oscal":
+				r := reporter.NewOSCALReporter(os.Stdout)
+				if err := r.Report(result); err != nil {
+					return fmt.Errorf("failed to output results: %w", err)
+				}
+			case "sarif":
+				r := reporter.NewSARIFReporter(os.Stdout)
+				if err := r.Report(result); err != nil {
+					return fmt.Errorf("failed to output results: %w", err)
+				}
+			case "markdown":
+				r := reporter.NewMarkdownReporter(os.Stdout)
+				if err := r.Report(result); err != nil {
 					return fmt.Errorf("failed to output results: %w", err)
 				}
 			case "text":
 				printTextReport(result)
 			default:
-				return fmt.Errorf("unsupported output format: %s", outputFormat)
+				return fmt.Errorf("unsupported output format: %s (supported: text, json, oscal, sarif, markdown)", outputFormat)
 			}
 
 			// Exit with code 1 if there are failures
@@ -159,7 +183,7 @@ This operation is read-only and safe to run in production.`,
 
 	cmd.Flags().StringVarP(&specFile, "spec", "s", "", "Path to cluster spec file (required)")
 	cmd.Flags().StringVar(&kubeconfigPath, "kubeconfig", "", "Path to kubeconfig file (default: $KUBECONFIG or ~/.kube/config)")
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format: text|json")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format: text|json|oscal|sarif|markdown")
 	cmd.MarkFlagRequired("spec")
 
 	return cmd
