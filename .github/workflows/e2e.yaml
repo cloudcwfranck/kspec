@@ -201,7 +201,26 @@ jobs:
       - name: Test policy enforcement (actual deployment)
         run: |
           echo "Deploying policies to cluster..."
-          ./kspec enforce --spec specs/examples/comprehensive.yaml
+
+          # Verify Kyverno is still running
+          echo "Pre-deployment Kyverno status:"
+          kubectl get deployments -n kyverno
+          kubectl get pods -n kyverno
+
+          # Check if CRD exists
+          echo "Checking ClusterPolicy CRD:"
+          kubectl get crd clusterpolicies.kyverno.io || echo "CRD not found!"
+
+          # Run with explicit error capture
+          if ! ./kspec enforce --spec specs/examples/comprehensive.yaml 2>&1 | tee enforce-output.log; then
+            echo "[FAIL] Policy enforcement failed"
+            echo "Full error output:"
+            cat enforce-output.log
+            echo "Kyverno status after failure:"
+            kubectl get deployments -n kyverno
+            kubectl get pods -n kyverno
+            exit 1
+          fi
 
           # Wait for policies to be ready
           echo "Waiting for policies to be ready..."
