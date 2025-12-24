@@ -1,1 +1,187 @@
-# kspec
+# kspec - Kubernetes Cluster Compliance Enforcer
+
+**Ship a cluster spec, not a platform.**
+
+kspec validates Kubernetes clusters against versioned specifications, enforces security policies, and generates compliance evidence for audits (FedRAMP, NIST 800-53, CIS benchmarks).
+
+## What is kspec?
+
+kspec is a CLI tool that scans your Kubernetes clusters to ensure they comply with security and compliance requirements defined in a YAML specification file. Unlike cluster installers, kspec works with existing clusters and focuses on proving compliance rather than provisioning infrastructure.
+
+**Key Features:**
+- 📋 **Specification-driven validation** - Define requirements in YAML, validate clusters against them
+- 🔍 **Read-only scanning** - Safe to run in production with no modifications
+- 🛡️ **Policy enforcement** - Deploy Kyverno policies from specifications
+- 📊 **Compliance evidence** - Generate OSCAL, SARIF, and JSON reports for auditors
+- 🌐 **Cloud-agnostic** - Works on EKS, AKS, GKE, on-prem, kind, k3d equally well
+- 🔒 **Security-first** - Never logs credentials, uses least-privilege RBAC
+
+## Why not just use X?
+
+| Tool | Purpose | kspec Difference |
+|------|---------|------------------|
+| **Polaris** | Cluster best practices | kspec enforces custom specs + generates audit evidence |
+| **Kyverno** | Policy engine | kspec generates policies from specs + validates compliance |
+| **Terraform** | Infrastructure provisioning | kspec validates existing clusters, doesn't provision |
+| **OpenSCAP** | OS compliance | kspec is Kubernetes-native with k8s-specific checks |
+
+kspec is the bridge between compliance frameworks (NIST, CIS) and your Kubernetes clusters.
+
+## Quickstart (5 minutes)
+
+### Installation
+
+```bash
+# From source (requires Go 1.21+)
+git clone https://github.com/kspec/kspec
+cd kspec
+go build -o kspec ./cmd/kspec
+sudo mv kspec /usr/local/bin/
+```
+
+### Basic Usage
+
+1. **Create a cluster specification**
+
+```yaml
+# cluster-spec.yaml
+apiVersion: kspec.dev/v1
+kind: ClusterSpecification
+metadata:
+  name: my-cluster-spec
+  version: "1.0.0"
+  description: "Production cluster requirements"
+
+spec:
+  kubernetes:
+    minVersion: "1.26.0"
+    maxVersion: "1.30.0"
+```
+
+2. **Validate the spec**
+
+```bash
+kspec validate --spec cluster-spec.yaml
+```
+
+3. **Scan your cluster**
+
+```bash
+# Scan with text output (human-readable)
+kspec scan --spec cluster-spec.yaml
+
+# Scan with JSON output (machine-readable)
+kspec scan --spec cluster-spec.yaml --output json
+```
+
+**Output:**
+```
+┌─────────────────────────────────────────┐
+│ kspec v1.0.0 — Compliance Report        │
+├─────────────────────────────────────────┤
+│ Cluster: unknown                        │
+│ Spec: my-cluster-spec v1.0.0            │
+│ Scanned: 2025-01-15T10:30:00Z           │
+└─────────────────────────────────────────┘
+
+COMPLIANCE: 1/1 checks passed (100%)
+
+✅ PASSED CHECKS (1)
+─────────────────────
+✓ Cluster version 1.28.0 is within spec range 1.26.0 - 1.30.0
+```
+
+## Example Specifications
+
+See `specs/examples/` for ready-to-use templates:
+- `minimal.yaml` - Basic cluster validation (Kubernetes version only)
+- Coming soon: `fedramp-moderate.yaml`, `cis-benchmark.yaml`, `nist-800-53.yaml`
+
+## What's Implemented (v1.0 Phase 1)
+
+✅ **Core Foundation**
+- Specification schema with YAML support
+- Kubernetes version validation check
+- JSON and text output formats
+- CLI with `version`, `validate`, and `scan` commands
+- Unit tests with >80% coverage
+
+🚧 **In Progress (Phase 2)**
+- Pod Security Standards check
+- Network policy checks
+- Workload security checks
+- Additional output formats (SARIF, OSCAL)
+- Policy enforcement with Kyverno
+
+📅 **Roadmap**
+- RBAC validation
+- Admission controller checks
+- Observability requirements
+- Drift detection
+- Remediation guidance
+
+## Development
+
+### Build from source
+
+```bash
+# Clone repository
+git clone https://github.com/kspec/kspec
+cd kspec
+
+# Install dependencies
+go mod tidy
+
+# Build
+go build -o kspec ./cmd/kspec
+
+# Run tests
+go test ./... -v
+
+# Run with coverage
+go test ./... -cover
+```
+
+### Project Structure
+
+```
+kspec/
+├── cmd/kspec/          # CLI entry point
+├── pkg/
+│   ├── spec/           # Specification schema and validation
+│   ├── scanner/        # Compliance checks
+│   │   └── checks/     # Individual check implementations
+│   └── reporter/       # Output formatters (JSON, text, etc.)
+├── specs/examples/     # Example specification files
+├── test/               # Integration and E2E tests
+└── docs/               # Documentation
+```
+
+## Contributing
+
+We welcome contributions! Please see `docs/contributing.md` for guidelines.
+
+## Architecture
+
+kspec follows these design principles:
+
+1. **Read-First, Enforce-Second** - All scanning is read-only and safe
+2. **Specification as Truth** - Cluster state validated against versioned specs
+3. **Evidence-Based Compliance** - Every check produces verifiable evidence
+4. **Minimal Runtime Footprint** - CLI-first design, no required in-cluster components
+
+For detailed architecture, see [AGENTS.md](./AGENTS.md).
+
+## License
+
+Apache 2.0 - see [LICENSE](./LICENSE) for details.
+
+## Support
+
+- **Issues**: https://github.com/kspec/kspec/issues
+- **Discussions**: https://github.com/kspec/kspec/discussions
+- **Documentation**: https://kspec.dev (coming soon)
+
+---
+
+**Status**: Foundation build (Phase 1 complete) - See [AGENTS.md](./AGENTS.md) for implementation roadmap.
