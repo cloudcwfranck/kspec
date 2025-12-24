@@ -121,10 +121,12 @@ This operation is read-only and safe to run in production.`,
 			}
 
 			// Create scanner with checks
-			checks := []scanner.Check{
+			checkList := []scanner.Check{
 				&checks.KubernetesVersionCheck{},
+				&checks.PodSecurityStandardsCheck{},
+				&checks.NetworkPolicyCheck{},
 			}
-			s := scanner.NewScanner(client, checks)
+			s := scanner.NewScanner(client, checkList)
 
 			// Run scan
 			fmt.Fprintf(os.Stderr, "Scanning cluster...\n")
