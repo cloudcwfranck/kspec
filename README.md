@@ -106,8 +106,9 @@ See `specs/examples/` for ready-to-use templates:
 - `minimal.yaml` - Basic cluster validation (Kubernetes version only)
 - `moderate.yaml` - CIS Kubernetes baseline security (baseline PSS, network policies)
 - `strict.yaml` - NIST 800-53 high-compliance (restricted PSS, full compliance mappings)
+- `comprehensive.yaml` - Complete security baseline demonstrating all Phase 4 checks
 
-## What's Implemented (Phases 1-3 Complete)
+## What's Implemented (Phases 1-4 Complete)
 
 ✅ **Phase 1: Foundation**
 - Specification schema with YAML support
@@ -120,22 +121,28 @@ See `specs/examples/` for ready-to-use templates:
 - Pod Security Standards check (enforce/audit/warn levels)
 - Network policy checks (default-deny, required policies)
 - Namespace exemption support
-- 21 comprehensive unit tests (100% coverage)
+- 21 comprehensive unit tests
 
 ✅ **Phase 3: Advanced Reporting**
 - OSCAL reporter (NIST compliance framework)
 - SARIF reporter (security scanning standard)
 - Markdown reporter (human-readable documentation)
-- Multi-format output support
+- Multi-format output support (JSON, text, OSCAL, SARIF, Markdown)
+
+✅ **Phase 4: Advanced Checks**
+- **Workload Security Check** - Container security contexts, resource limits/requests, privileged containers, host namespaces
+- **RBAC Check** - Minimum required rules, forbidden wildcard permissions, least-privilege validation
+- **Admission Controller Check** - ValidatingWebhookConfigurations, MutatingWebhookConfigurations, Kyverno policy validation
+- **Observability Check** - Metrics providers (Prometheus, metrics-server), audit logging requirements
+- **Image Security** - Allowed/blocked registries, digest requirements, wildcard registry support
+- 60+ comprehensive unit tests with 84.6% coverage
+- Comprehensive example spec demonstrating all checks
 
 📅 **Roadmap (Future Phases)**
-- Policy enforcement with Kyverno (generate & deploy policies)
-- Workload security context checks
-- RBAC validation
-- Admission controller checks
-- Observability requirements
-- Drift detection
-- Remediation automation
+- Phase 5: Policy enforcement with Kyverno (generate & deploy policies)
+- Phase 6: Drift detection & remediation automation
+- Additional checks: Image vulnerability scanning, secret management validation
+- Multi-cluster management
 
 ## Development
 
@@ -201,4 +208,4 @@ Apache 2.0 - see [LICENSE](./LICENSE) for details.
 
 ---
 
-**Status**: Foundation build (Phase 1 complete) - See [AGENTS.md](./AGENTS.md) for implementation roadmap.
+**Status**: Phase 4 complete - Advanced compliance checks implemented. See [AGENTS.md](./AGENTS.md) for full implementation roadmap.

@@ -134,6 +134,10 @@ This operation is read-only and safe to run in production.`,
 				&checks.KubernetesVersionCheck{},
 				&checks.PodSecurityStandardsCheck{},
 				&checks.NetworkPolicyCheck{},
+				&checks.WorkloadSecurityCheck{},
+				&checks.RBACCheck{},
+				&checks.AdmissionCheck{},
+				&checks.ObservabilityCheck{},
 			}
 			s := scanner.NewScanner(client, checkList)
 
