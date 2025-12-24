@@ -158,12 +158,14 @@ jobs:
         run: |
           echo "Installing Kyverno..."
           kubectl create namespace kyverno || true
-          kubectl apply -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
+
+          # Use server-side apply to handle large CRD annotations
+          kubectl apply --server-side=true -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
 
           # Wait for Kyverno to be ready (max 5 minutes)
           echo "Waiting for Kyverno deployment..."
           kubectl wait --for=condition=available --timeout=300s \
-            deployment/kyverno -n kyverno || true
+            deployment/kyverno-admission-controller -n kyverno || true
 
           # Verify Kyverno is running
           kubectl get deployments -n kyverno
