@@ -77,9 +77,9 @@ kubectl top nodes`,
 	}
 
 	return &scanner.CheckResult{
-		Name:    c.Name(),
-		Status:  scanner.StatusPass,
-		Message: "Observability requirements satisfied",
+		Name:     c.Name(),
+		Status:   scanner.StatusPass,
+		Message:  "Observability requirements satisfied",
 		Evidence: evidence,
 	}, nil
 }

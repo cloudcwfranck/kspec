@@ -90,9 +90,9 @@ kubectl apply -f https://raw.githubusercontent.com/kyverno/policies/main/pod-sec
 	}
 
 	return &scanner.CheckResult{
-		Name:    c.Name(),
-		Status:  scanner.StatusPass,
-		Message: "Admission controller requirements satisfied",
+		Name:     c.Name(),
+		Status:   scanner.StatusPass,
+		Message:  "Admission controller requirements satisfied",
 		Evidence: evidence,
 	}, nil
 }
