@@ -1,0 +1,14 @@
+apiVersion: kspec.dev/v1
+kind: ClusterSpecification
+metadata:
+  name: minimal-example
+  version: "1.0.0"
+  description: "Minimal cluster specification for testing"
+  labels:
+    environment: "development"
+
+spec:
+  # Kubernetes version requirements
+  kubernetes:
+    minVersion: "1.26.0"
+    maxVersion: "1.30.0"
