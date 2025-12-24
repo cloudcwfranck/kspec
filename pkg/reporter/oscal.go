@@ -38,7 +38,7 @@ func (r *OSCALReporter) buildOSCAL(result *scanner.ScanResult) map[string]interf
 	// Build OSCAL Assessment Results structure
 	return map[string]interface{}{
 		"assessment-results": map[string]interface{}{
-			"uuid":    uuid.New().String(),
+			"uuid":     uuid.New().String(),
 			"metadata": r.buildMetadata(result),
 			"results": []map[string]interface{}{
 				r.buildResult(result),

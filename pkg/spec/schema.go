@@ -3,9 +3,9 @@ package spec
 
 // ClusterSpecification represents the complete cluster specification.
 type ClusterSpecification struct {
-	APIVersion string   `yaml:"apiVersion" json:"apiVersion"`
-	Kind       string   `yaml:"kind" json:"kind"`
-	Metadata   Metadata `yaml:"metadata" json:"metadata"`
+	APIVersion string     `yaml:"apiVersion" json:"apiVersion"`
+	Kind       string     `yaml:"kind" json:"kind"`
+	Metadata   Metadata   `yaml:"metadata" json:"metadata"`
 	Spec       SpecFields `yaml:"spec" json:"spec"`
 }
 
@@ -19,14 +19,14 @@ type Metadata struct {
 
 // SpecFields contains all specification requirements.
 type SpecFields struct {
-	Kubernetes    KubernetesSpec    `yaml:"kubernetes" json:"kubernetes"`
-	PodSecurity   *PodSecuritySpec  `yaml:"podSecurity,omitempty" json:"podSecurity,omitempty"`
-	Network       *NetworkSpec      `yaml:"network,omitempty" json:"network,omitempty"`
-	Workloads     *WorkloadsSpec    `yaml:"workloads,omitempty" json:"workloads,omitempty"`
-	RBAC          *RBACSpec         `yaml:"rbac,omitempty" json:"rbac,omitempty"`
-	Admission     *AdmissionSpec    `yaml:"admission,omitempty" json:"admission,omitempty"`
+	Kubernetes    KubernetesSpec     `yaml:"kubernetes" json:"kubernetes"`
+	PodSecurity   *PodSecuritySpec   `yaml:"podSecurity,omitempty" json:"podSecurity,omitempty"`
+	Network       *NetworkSpec       `yaml:"network,omitempty" json:"network,omitempty"`
+	Workloads     *WorkloadsSpec     `yaml:"workloads,omitempty" json:"workloads,omitempty"`
+	RBAC          *RBACSpec          `yaml:"rbac,omitempty" json:"rbac,omitempty"`
+	Admission     *AdmissionSpec     `yaml:"admission,omitempty" json:"admission,omitempty"`
 	Observability *ObservabilitySpec `yaml:"observability,omitempty" json:"observability,omitempty"`
-	Compliance    *ComplianceSpec   `yaml:"compliance,omitempty" json:"compliance,omitempty"`
+	Compliance    *ComplianceSpec    `yaml:"compliance,omitempty" json:"compliance,omitempty"`
 }
 
 // KubernetesSpec defines Kubernetes version requirements.
@@ -86,10 +86,10 @@ type FieldRequirement struct {
 
 // ImageSpec defines image security requirements.
 type ImageSpec struct {
-	AllowedRegistries  []string `yaml:"allowedRegistries,omitempty" json:"allowedRegistries,omitempty"`
-	BlockedRegistries  []string `yaml:"blockedRegistries,omitempty" json:"blockedRegistries,omitempty"`
-	RequireDigests     bool     `yaml:"requireDigests" json:"requireDigests"`
-	RequireSignatures  bool     `yaml:"requireSignatures" json:"requireSignatures"`
+	AllowedRegistries []string `yaml:"allowedRegistries,omitempty" json:"allowedRegistries,omitempty"`
+	BlockedRegistries []string `yaml:"blockedRegistries,omitempty" json:"blockedRegistries,omitempty"`
+	RequireDigests    bool     `yaml:"requireDigests" json:"requireDigests"`
+	RequireSignatures bool     `yaml:"requireSignatures" json:"requireSignatures"`
 }
 
 // RBACSpec defines RBAC requirements.
@@ -143,8 +143,8 @@ type LoggingSpec struct {
 
 // AuditLogSpec defines audit log requirements.
 type AuditLogSpec struct {
-	Required          bool `yaml:"required" json:"required"`
-	MinRetentionDays  int  `yaml:"minRetentionDays" json:"minRetentionDays"`
+	Required         bool `yaml:"required" json:"required"`
+	MinRetentionDays int  `yaml:"minRetentionDays" json:"minRetentionDays"`
 }
 
 // ComplianceSpec defines compliance framework mappings.
@@ -154,16 +154,16 @@ type ComplianceSpec struct {
 
 // ComplianceFramework defines a compliance framework.
 type ComplianceFramework struct {
-	Name     string             `yaml:"name" json:"name"`
-	Revision string             `yaml:"revision,omitempty" json:"revision,omitempty"`
+	Name     string              `yaml:"name" json:"name"`
+	Revision string              `yaml:"revision,omitempty" json:"revision,omitempty"`
 	Controls []ComplianceControl `yaml:"controls,omitempty" json:"controls,omitempty"`
 }
 
 // ComplianceControl defines a compliance control.
 type ComplianceControl struct {
-	ID       string            `yaml:"id" json:"id"`
-	Title    string            `yaml:"title" json:"title"`
-	Mappings []ControlMapping  `yaml:"mappings,omitempty" json:"mappings,omitempty"`
+	ID       string           `yaml:"id" json:"id"`
+	Title    string           `yaml:"title" json:"title"`
+	Mappings []ControlMapping `yaml:"mappings,omitempty" json:"mappings,omitempty"`
 }
 
 // ControlMapping maps a compliance control to a check.

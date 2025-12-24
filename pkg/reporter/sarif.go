@@ -146,9 +146,9 @@ func (r *SARIFReporter) buildResults(results []scanner.CheckResult) []map[string
 // getRuleDescription returns a description for a given check rule.
 func (r *SARIFReporter) getRuleDescription(ruleName string) string {
 	descriptions := map[string]string{
-		"kubernetes.version":     "Validates Kubernetes cluster version is within specified range",
-		"podsecurity.standards":  "Validates Pod Security Standards labels on namespaces",
-		"network.policies":       "Validates network policy requirements",
+		"kubernetes.version":    "Validates Kubernetes cluster version is within specified range",
+		"podsecurity.standards": "Validates Pod Security Standards labels on namespaces",
+		"network.policies":      "Validates network policy requirements",
 	}
 
 	if desc, exists := descriptions[ruleName]; exists {

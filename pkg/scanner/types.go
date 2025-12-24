@@ -64,10 +64,10 @@ type ScanResult struct {
 
 // ScanMetadata contains metadata about the scan.
 type ScanMetadata struct {
-	KspecVersion string        `json:"kspec_version"`
-	ScanTime     string        `json:"scan_time"`
-	Cluster      ClusterInfo   `json:"cluster"`
-	Spec         SpecInfo      `json:"spec"`
+	KspecVersion string      `json:"kspec_version"`
+	ScanTime     string      `json:"scan_time"`
+	Cluster      ClusterInfo `json:"cluster"`
+	Spec         SpecInfo    `json:"spec"`
 }
 
 // ClusterInfo contains information about the scanned cluster.

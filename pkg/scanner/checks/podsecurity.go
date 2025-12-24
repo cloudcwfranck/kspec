@@ -31,8 +31,8 @@ func (c *PodSecurityStandardsCheck) Run(ctx context.Context, client kubernetes.I
 	// Skip check if Pod Security Standards are not specified
 	if clusterSpec.Spec.PodSecurity == nil {
 		return &scanner.CheckResult{
-			Name:   c.Name(),
-			Status: scanner.StatusSkip,
+			Name:    c.Name(),
+			Status:  scanner.StatusSkip,
 			Message: "Pod Security Standards not specified in cluster spec",
 		}, nil
 	}

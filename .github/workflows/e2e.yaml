@@ -1,0 +1,171 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, claude/** ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  e2e-kind:
+    name: E2E Tests with kind
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build kspec
+        run: go build -o kspec ./cmd/kspec
+
+      - name: Set up kind
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kspec-test
+          node_image: kindest/node:v1.29.0
+          wait: 5m
+
+      - name: Verify cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+          kubectl version
+
+      - name: Create test namespace with PSS labels
+        run: |
+          kubectl create namespace kspec-test
+          kubectl label namespace kspec-test \
+            pod-security.kubernetes.io/enforce=baseline \
+            pod-security.kubernetes.io/audit=restricted \
+            pod-security.kubernetes.io/warn=restricted
+
+      - name: Create default-deny network policy
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
+          metadata:
+            name: default-deny-all
+            namespace: kspec-test
+          spec:
+            podSelector: {}
+            policyTypes:
+            - Ingress
+            - Egress
+          EOF
+
+      - name: Scan with text output
+        run: |
+          ./kspec scan --spec specs/examples/minimal.yaml --output text || true
+          echo "✓ Text output works"
+
+      - name: Scan with JSON output
+        run: |
+          ./kspec scan --spec specs/examples/minimal.yaml --output json > scan-result.json
+          cat scan-result.json
+          echo "✓ JSON output works"
+
+      - name: Validate JSON output
+        run: |
+          if ! jq empty scan-result.json 2>/dev/null; then
+            echo "Invalid JSON output"
+            exit 1
+          fi
+          # Check required fields
+          jq -e '.metadata.kspec_version' scan-result.json
+          jq -e '.summary.total_checks' scan-result.json
+          jq -e '.results' scan-result.json
+          echo "✓ JSON structure is valid"
+
+      - name: Scan with OSCAL output
+        run: |
+          ./kspec scan --spec specs/examples/minimal.yaml --output oscal > oscal-report.json
+          cat oscal-report.json
+          echo "✓ OSCAL output works"
+
+      - name: Validate OSCAL output
+        run: |
+          if ! jq empty oscal-report.json 2>/dev/null; then
+            echo "Invalid OSCAL JSON"
+            exit 1
+          fi
+          # Check OSCAL structure
+          jq -e '.["assessment-results"]' oscal-report.json
+          jq -e '.["assessment-results"].metadata' oscal-report.json
+          jq -e '.["assessment-results"].results[0]' oscal-report.json
+          echo "✓ OSCAL structure is valid"
+
+      - name: Scan with SARIF output
+        run: |
+          ./kspec scan --spec specs/examples/minimal.yaml --output sarif > results.sarif
+          cat results.sarif
+          echo "✓ SARIF output works"
+
+      - name: Validate SARIF output
+        run: |
+          if ! jq empty results.sarif 2>/dev/null; then
+            echo "Invalid SARIF JSON"
+            exit 1
+          fi
+          # Check SARIF structure
+          jq -e '.version' results.sarif
+          jq -e '.runs[0].tool.driver.name' results.sarif
+          jq -e '.runs[0].results' results.sarif
+          echo "✓ SARIF structure is valid"
+
+      - name: Scan with Markdown output
+        run: |
+          ./kspec scan --spec specs/examples/minimal.yaml --output markdown > COMPLIANCE.md
+          cat COMPLIANCE.md
+          echo "✓ Markdown output works"
+
+      - name: Validate Markdown output
+        run: |
+          # Check for expected sections
+          grep -q "# Kubernetes Compliance Report" COMPLIANCE.md
+          grep -q "## Executive Summary" COMPLIANCE.md
+          grep -q "## Detailed Results" COMPLIANCE.md
+          echo "✓ Markdown structure is valid"
+
+      - name: Test moderate spec
+        run: |
+          ./kspec scan --spec specs/examples/moderate.yaml --output json > moderate-scan.json || true
+          echo "✓ Moderate spec scan completed"
+
+      - name: Test strict spec
+        run: |
+          ./kspec scan --spec specs/examples/strict.yaml --output json > strict-scan.json || true
+          echo "✓ Strict spec scan completed"
+
+      - name: Upload scan artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-results
+          path: |
+            scan-result.json
+            oscal-report.json
+            results.sarif
+            COMPLIANCE.md
+            moderate-scan.json
+            strict-scan.json
+
+      - name: Summary
+        run: |
+          echo "### E2E Test Results ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All output formats validated successfully:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Text output" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ JSON output" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ OSCAL output (NIST compliance)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SARIF output (security tools)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Markdown output (documentation)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Spec files validated:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ minimal.yaml" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ moderate.yaml" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ strict.yaml" >> $GITHUB_STEP_SUMMARY

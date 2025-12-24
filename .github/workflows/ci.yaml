@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, claude/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run go fmt
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Go files must be formatted with gofmt. Please run:"
+            echo "  gofmt -w ."
+            exit 1
+          fi
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Generate coverage report
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.html
+
+      - name: Check test coverage
+        run: |
+          # Check overall coverage (lenient for now - reporters don't have tests yet)
+          TOTAL_COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${TOTAL_COVERAGE}%"
+
+          # Check critical checks package coverage (must be >80%)
+          CHECKS_COVERAGE=$(go test -cover ./pkg/scanner/checks 2>&1 | grep coverage | awk '{print $5}' | sed 's/%//')
+          echo "Checks package coverage: ${CHECKS_COVERAGE}%"
+
+          if (( $(echo "$CHECKS_COVERAGE < 80" | bc -l) )); then
+            echo "❌ Critical checks coverage is below 80%"
+            exit 1
+          fi
+
+          echo "✅ Coverage checks passed"
+          echo "  - Total: ${TOTAL_COVERAGE}%"
+          echo "  - Checks (critical): ${CHECKS_COVERAGE}%"
+
+  build:
+    name: Build Binary
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    strategy:
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          OUTPUT_NAME=kspec-${{ matrix.os }}-${{ matrix.arch }}
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            OUTPUT_NAME="${OUTPUT_NAME}.exe"
+          fi
+          go build -v -o $OUTPUT_NAME ./cmd/kspec
+          ls -lh $OUTPUT_NAME
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kspec-${{ matrix.os }}-${{ matrix.arch }}
+          path: kspec-*
+
+  validate-specs:
+    name: Validate Example Specs
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build kspec
+        run: go build -o kspec ./cmd/kspec
+
+      - name: Validate minimal spec
+        run: ./kspec validate --spec specs/examples/minimal.yaml
+
+      - name: Validate moderate spec
+        run: ./kspec validate --spec specs/examples/moderate.yaml
+
+      - name: Validate strict spec
+        run: ./kspec validate --spec specs/examples/strict.yaml
+
+      - name: Test version command
+        run: ./kspec version
+
+      - name: Test help commands
+        run: |
+          ./kspec --help
+          ./kspec validate --help
+          ./kspec scan --help
