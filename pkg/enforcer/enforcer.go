@@ -103,6 +103,11 @@ func (e *Enforcer) Enforce(ctx context.Context, clusterSpec *spec.ClusterSpecifi
 		applied, applyErrors := e.applyPolicies(ctx, policies)
 		result.PoliciesApplied = applied
 		result.Errors = applyErrors
+
+		// CRITICAL: If policies failed to apply, return error
+		if len(applyErrors) > 0 {
+			return nil, fmt.Errorf("failed to apply %d policies: %v", len(applyErrors), applyErrors)
+		}
 	}
 
 	return result, nil
@@ -120,11 +125,11 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 		Resource: "clusterpolicies",
 	}
 
-	for _, policyObj := range policies {
+	for i, policyObj := range policies {
 		// Convert our typed ClusterPolicy to unstructured for dynamic client
 		unstructuredPolicy, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policyObj)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("failed to convert policy to unstructured: %v", err))
+			errors = append(errors, fmt.Sprintf("policy[%d]: failed to convert to unstructured: %v", i, err))
 			continue
 		}
 
@@ -134,25 +139,41 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 		u.SetAPIVersion("kyverno.io/v1")
 		u.SetKind("ClusterPolicy")
 
-		// Try to create the policy, or update if it already exists
 		policyName := u.GetName()
+		if policyName == "" {
+			errors = append(errors, fmt.Sprintf("policy[%d]: missing name after conversion", i))
+			continue
+		}
+
+		// Debug: Log what we're trying to create
+		fmt.Printf("DEBUG: Attempting to create ClusterPolicy '%s' (APIVersion=%s, Kind=%s)\n",
+			policyName, u.GetAPIVersion(), u.GetKind())
+
+		// Try to create the policy, or update if it already exists
 		_, createErr := e.dynamicClient.Resource(gvr).Create(ctx, u, metav1.CreateOptions{})
 		if createErr != nil {
 			// If policy exists, update it
 			if strings.Contains(createErr.Error(), "already exists") {
+				fmt.Printf("DEBUG: Policy '%s' already exists, updating...\n", policyName)
 				_, updateErr := e.dynamicClient.Resource(gvr).Update(ctx, u, metav1.UpdateOptions{})
 				if updateErr != nil {
-					errors = append(errors, fmt.Sprintf("failed to update policy %s: %v", policyName, updateErr))
+					errors = append(errors, fmt.Sprintf("policy '%s': failed to update: %v", policyName, updateErr))
 					continue
 				}
+				fmt.Printf("DEBUG: Successfully updated policy '%s'\n", policyName)
 			} else {
-				errors = append(errors, fmt.Sprintf("failed to create policy %s: %v", policyName, createErr))
+				errors = append(errors, fmt.Sprintf("policy '%s': failed to create: %v", policyName, createErr))
+				fmt.Printf("DEBUG: Failed to create policy '%s': %v\n", policyName, createErr)
 				continue
 			}
+		} else {
+			fmt.Printf("DEBUG: Successfully created policy '%s'\n", policyName)
 		}
 
 		applied++
 	}
+
+	fmt.Printf("DEBUG: Applied %d/%d policies, %d errors\n", applied, len(policies), len(errors))
 
 	return applied, errors
 }
