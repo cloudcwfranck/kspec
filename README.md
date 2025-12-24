@@ -72,6 +72,15 @@ kspec scan --spec cluster-spec.yaml
 
 # Scan with JSON output (machine-readable)
 kspec scan --spec cluster-spec.yaml --output json
+
+# Generate OSCAL compliance report (NIST framework)
+kspec scan --spec cluster-spec.yaml --output oscal > report.json
+
+# Generate SARIF security report (for security tools)
+kspec scan --spec cluster-spec.yaml --output sarif > results.sarif
+
+# Generate Markdown documentation
+kspec scan --spec cluster-spec.yaml --output markdown > COMPLIANCE.md
 ```
 
 **Output:**
@@ -95,30 +104,38 @@ COMPLIANCE: 1/1 checks passed (100%)
 
 See `specs/examples/` for ready-to-use templates:
 - `minimal.yaml` - Basic cluster validation (Kubernetes version only)
-- Coming soon: `fedramp-moderate.yaml`, `cis-benchmark.yaml`, `nist-800-53.yaml`
+- `moderate.yaml` - CIS Kubernetes baseline security (baseline PSS, network policies)
+- `strict.yaml` - NIST 800-53 high-compliance (restricted PSS, full compliance mappings)
 
-## What's Implemented (v1.0 Phase 1)
+## What's Implemented (Phases 1-3 Complete)
 
-✅ **Core Foundation**
+✅ **Phase 1: Foundation**
 - Specification schema with YAML support
 - Kubernetes version validation check
 - JSON and text output formats
 - CLI with `version`, `validate`, and `scan` commands
 - Unit tests with >80% coverage
 
-🚧 **In Progress (Phase 2)**
-- Pod Security Standards check
-- Network policy checks
-- Workload security checks
-- Additional output formats (SARIF, OSCAL)
-- Policy enforcement with Kyverno
+✅ **Phase 2: Core Checks**
+- Pod Security Standards check (enforce/audit/warn levels)
+- Network policy checks (default-deny, required policies)
+- Namespace exemption support
+- 21 comprehensive unit tests (100% coverage)
 
-📅 **Roadmap**
+✅ **Phase 3: Advanced Reporting**
+- OSCAL reporter (NIST compliance framework)
+- SARIF reporter (security scanning standard)
+- Markdown reporter (human-readable documentation)
+- Multi-format output support
+
+📅 **Roadmap (Future Phases)**
+- Policy enforcement with Kyverno (generate & deploy policies)
+- Workload security context checks
 - RBAC validation
 - Admission controller checks
 - Observability requirements
 - Drift detection
-- Remediation guidance
+- Remediation automation
 
 ## Development
 
