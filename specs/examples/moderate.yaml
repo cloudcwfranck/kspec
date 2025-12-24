@@ -1,0 +1,46 @@
+apiVersion: kspec.dev/v1
+kind: ClusterSpecification
+metadata:
+  name: moderate-security
+  version: "1.0.0"
+  description: "Moderate security baseline for production clusters"
+  labels:
+    compliance-framework: "CIS-Kubernetes"
+    environment: "production"
+
+spec:
+  # Kubernetes version requirements
+  kubernetes:
+    minVersion: "1.28.0"
+    maxVersion: "1.30.0"
+    excludedVersions:
+      - "1.29.0"  # Example: known CVE in this version
+
+  # Pod Security Standards - Baseline enforcement
+  podSecurity:
+    enforce: "baseline"
+    audit: "restricted"
+    warn: "restricted"
+    exemptions:
+      - namespace: "kube-system"
+        level: "privileged"
+        reason: "System components require host access"
+      - namespace: "kube-public"
+        level: "privileged"
+        reason: "Public resources may need elevated privileges"
+
+  # Network policies - Default deny with exceptions
+  network:
+    defaultDeny: true
+    requiredPolicies:
+      - name: "allow-dns"
+        description: "Allow DNS resolution to kube-dns/CoreDNS"
+      - name: "deny-metadata-server"
+        description: "Block access to cloud metadata endpoints (169.254.169.254)"
+    allowedServiceTypes:
+      - ClusterIP
+      - LoadBalancer
+    disallowedPorts:
+      - 22    # SSH
+      - 23    # Telnet
+      - 3389  # RDP

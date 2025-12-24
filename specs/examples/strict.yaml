@@ -1,0 +1,165 @@
+apiVersion: kspec.dev/v1
+kind: ClusterSpecification
+metadata:
+  name: strict-security
+  version: "1.0.0"
+  description: "Strict security requirements for high-compliance environments (FedRAMP, NIST 800-53)"
+  labels:
+    compliance-framework: "NIST-800-53"
+    environment: "production"
+    security-level: "high"
+
+spec:
+  # Kubernetes version requirements - Latest stable only
+  kubernetes:
+    minVersion: "1.29.0"
+    maxVersion: "1.30.0"
+
+  # Pod Security Standards - Restricted enforcement everywhere
+  podSecurity:
+    enforce: "restricted"
+    audit: "restricted"
+    warn: "restricted"
+    exemptions:
+      - namespace: "kube-system"
+        level: "privileged"
+        reason: "Required for core Kubernetes components (kube-proxy, CNI, etc.)"
+
+  # Network policies - Strict default deny
+  network:
+    defaultDeny: true
+    requiredPolicies:
+      - name: "allow-dns"
+        description: "Allow DNS resolution to kube-dns/CoreDNS only"
+      - name: "deny-metadata-server"
+        description: "Block cloud metadata endpoints (AWS, Azure, GCP)"
+      - name: "deny-external-egress"
+        description: "Deny all egress except to approved destinations"
+      - name: "allow-monitoring"
+        description: "Allow metrics scraping by Prometheus"
+    allowedServiceTypes:
+      - ClusterIP  # Only internal services allowed
+    disallowedPorts:
+      - 22    # SSH
+      - 23    # Telnet
+      - 3389  # RDP
+      - 5432  # PostgreSQL (must use internal services)
+      - 3306  # MySQL (must use internal services)
+      - 27017 # MongoDB (must use internal services)
+
+  # Workload security requirements
+  workloads:
+    containers:
+      required:
+        - key: "securityContext.runAsNonRoot"
+          value: true
+        - key: "securityContext.allowPrivilegeEscalation"
+          value: false
+        - key: "securityContext.readOnlyRootFilesystem"
+          value: true
+        - key: "resources.limits.memory"
+          exists: true
+        - key: "resources.limits.cpu"
+          exists: true
+        - key: "resources.requests.memory"
+          exists: true
+        - key: "resources.requests.cpu"
+          exists: true
+      forbidden:
+        - key: "securityContext.privileged"
+          value: true
+        - key: "hostNetwork"
+          value: true
+        - key: "hostPID"
+          value: true
+        - key: "hostIPC"
+          value: true
+
+    # Image security
+    images:
+      allowedRegistries:
+        - "gcr.io/my-company"
+        - "*.azurecr.io"
+        - "ghcr.io/my-company"
+      blockedRegistries:
+        - "docker.io"  # Public Docker Hub not allowed
+      requireDigests: true
+      requireSignatures: false  # Future enhancement
+
+  # RBAC requirements
+  rbac:
+    minimumRules:
+      - apiGroup: ""
+        resource: "serviceaccounts"
+        verbs: ["get", "list"]
+    forbiddenRules:
+      - apiGroup: "*"
+        resource: "*"
+        verbs: ["*"]  # No cluster-admin-like roles for applications
+
+  # Admission control requirements
+  admission:
+    required:
+      - type: "ValidatingWebhookConfiguration"
+        namePattern: "kyverno-.*"
+        minCount: 1
+    policies:
+      minCount: 10  # Cluster must have at least 10 active policies
+      requiredPolicies:
+        - name: "disallow-privileged-containers"
+        - name: "require-resource-limits"
+        - name: "require-non-root-user"
+        - name: "require-read-only-root-filesystem"
+        - name: "disallow-host-namespaces"
+
+  # Observability requirements
+  observability:
+    metrics:
+      required: true
+      providers:
+        - "prometheus"
+        - "metrics-server"
+    logging:
+      auditLog:
+        required: true
+        minRetentionDays: 90
+
+  # Compliance mappings
+  compliance:
+    frameworks:
+      - name: "NIST-800-53"
+        revision: "Rev 5"
+        controls:
+          - id: "AC-2"
+            title: "Account Management"
+            mappings:
+              - check: "rbac.minimumRules"
+              - check: "podSecurity.enforce"
+          - id: "AC-3"
+            title: "Access Enforcement"
+            mappings:
+              - check: "rbac.forbiddenRules"
+          - id: "SC-7"
+            title: "Boundary Protection"
+            mappings:
+              - check: "network.defaultDeny"
+              - check: "network.requiredPolicies"
+          - id: "SI-4"
+            title: "System Monitoring"
+            mappings:
+              - check: "observability.metrics"
+              - check: "observability.logging"
+      - name: "CIS-Kubernetes-v1.8"
+        controls:
+          - id: "5.2.1"
+            title: "Minimize admission of privileged containers"
+            mappings:
+              - check: "workloads.containers.forbidden.privileged"
+          - id: "5.2.5"
+            title: "Minimize admission of containers with allowPrivilegeEscalation"
+            mappings:
+              - check: "workloads.containers.required.allowPrivilegeEscalation"
+          - id: "5.3.2"
+            title: "Ensure that all Namespaces have Network Policies defined"
+            mappings:
+              - check: "network.defaultDeny"
