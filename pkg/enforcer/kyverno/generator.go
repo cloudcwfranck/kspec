@@ -89,7 +89,7 @@ func (g *Generator) createRunAsNonRootPolicy() *ClusterPolicy {
 
 	policy.Spec.Rules = []Rule{
 		{
-			Name: "check-runAsNonRoot",
+			Name: "check-run-as-non-root",
 			Match: MatchResources{
 				Any: []ResourceFilter{
 					{
@@ -125,7 +125,7 @@ func (g *Generator) createDisallowPrivilegeEscalationPolicy() *ClusterPolicy {
 
 	policy.Spec.Rules = []Rule{
 		{
-			Name: "check-allowPrivilegeEscalation",
+			Name: "check-allow-privilege-escalation",
 			Match: MatchResources{
 				Any: []ResourceFilter{
 					{
