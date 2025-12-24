@@ -1,0 +1,197 @@
+apiVersion: kspec.dev/v1
+kind: ClusterSpecification
+metadata:
+  name: comprehensive-security
+  version: "1.0.0"
+  description: "Comprehensive security baseline demonstrating all kspec checks"
+  labels:
+    compliance-framework: "NIST-800-53"
+    environment: "production"
+    tier: "high-security"
+
+spec:
+  # Kubernetes version requirements
+  kubernetes:
+    minVersion: "1.28.0"
+    maxVersion: "1.30.0"
+    excludedVersions:
+      - "1.29.0"  # Example: excluded due to CVE
+
+  # Pod Security Standards
+  podSecurity:
+    enforce: "restricted"
+    audit: "restricted"
+    warn: "restricted"
+    exemptions:
+      - namespace: "kube-system"
+        level: "privileged"
+        reason: "System components require elevated permissions"
+
+  # Network policies
+  network:
+    defaultDeny: true
+    requiredPolicies:
+      - name: "allow-dns"
+        description: "Allow DNS resolution to kube-dns/CoreDNS"
+      - name: "deny-metadata-server"
+        description: "Block access to cloud metadata endpoints"
+      - name: "allow-ingress-controller"
+        description: "Allow traffic to ingress controller"
+    allowedServiceTypes:
+      - ClusterIP
+      - LoadBalancer
+    disallowedPorts:
+      - 22    # SSH
+      - 3389  # RDP
+      - 23    # Telnet
+
+  # Workload security requirements
+  workloads:
+    containers:
+      required:
+        - key: "securityContext.runAsNonRoot"
+          value: true
+        - key: "securityContext.allowPrivilegeEscalation"
+          value: false
+        - key: "resources.limits.memory"
+          exists: true
+        - key: "resources.requests.cpu"
+          exists: true
+        - key: "resources.limits.cpu"
+          exists: true
+        - key: "resources.requests.memory"
+          exists: true
+      forbidden:
+        - key: "securityContext.privileged"
+          value: true
+        - key: "hostNetwork"
+          value: true
+        - key: "hostPID"
+          value: true
+        - key: "hostIPC"
+          value: true
+
+    images:
+      allowedRegistries:
+        - "ghcr.io"
+        - "*.azurecr.io"
+        - "*.gcr.io"
+        - "public.ecr.aws"
+      blockedRegistries:
+        - "docker.io"  # Block Docker Hub
+      requireDigests: true
+      requireSignatures: false  # v1.1 feature
+
+  # RBAC requirements
+  rbac:
+    minimumRules:
+      - apiGroup: ""
+        resource: "serviceaccounts"
+        verbs: ["get", "list"]
+      - apiGroup: ""
+        resource: "configmaps"
+        verbs: ["get", "list"]
+    forbiddenRules:
+      - apiGroup: "*"
+        resource: "*"
+        verbs: ["*"]  # No cluster-admin-like wildcard roles
+      - apiGroup: ""
+        resource: "secrets"
+        verbs: ["*"]  # No wildcard access to secrets
+
+  # Admission control
+  admission:
+    required:
+      - type: "ValidatingWebhookConfiguration"
+        namePattern: "kyverno-.*"
+        minCount: 1
+      - type: "MutatingWebhookConfiguration"
+        namePattern: "kyverno-.*"
+        minCount: 1
+    policies:
+      minCount: 10
+      requiredPolicies:
+        - name: "disallow-privileged-containers"
+        - name: "require-resource-limits"
+        - name: "require-run-as-non-root"
+        - name: "disallow-host-namespaces"
+        - name: "require-read-only-root-filesystem"
+
+  # Observability requirements
+  observability:
+    metrics:
+      required: true
+      providers:
+        - "prometheus"
+        - "metrics-server"
+    logging:
+      auditLog:
+        required: true
+        minRetentionDays: 90
+
+  # Compliance mappings
+  compliance:
+    frameworks:
+      - name: "NIST-800-53"
+        revision: "Rev 5"
+        controls:
+          - id: "AC-2"
+            title: "Account Management"
+            mappings:
+              - check: "rbac.validation"
+              - check: "podSecurity.enforce"
+          - id: "SC-7"
+            title: "Boundary Protection"
+            mappings:
+              - check: "network.defaultDeny"
+              - check: "workload.security"
+          - id: "CM-7"
+            title: "Least Functionality"
+            mappings:
+              - check: "admission.controllers"
+              - check: "workload.security"
+          - id: "AU-2"
+            title: "Audit Events"
+            mappings:
+              - check: "observability.validation"
+          - id: "SI-4"
+            title: "System Monitoring"
+            mappings:
+              - check: "observability.validation"
+
+      - name: "CIS-Kubernetes-v1.8"
+        controls:
+          - id: "5.2.1"
+            title: "Minimize admission of privileged containers"
+            mappings:
+              - check: "workload.security"
+              - check: "podSecurity.enforce"
+          - id: "5.2.2"
+            title: "Minimize admission of containers with added capabilities"
+            mappings:
+              - check: "workload.security"
+          - id: "5.2.3"
+            title: "Minimize admission of containers with capabilities assigned"
+            mappings:
+              - check: "admission.controllers"
+          - id: "5.2.5"
+            title: "Minimize admission of containers with allowPrivilegeEscalation"
+            mappings:
+              - check: "workload.security"
+          - id: "5.2.6"
+            title: "Minimize admission of root containers"
+            mappings:
+              - check: "workload.security"
+          - id: "5.3.1"
+            title: "Ensure that the CNI in use supports NetworkPolicies"
+            mappings:
+              - check: "network.validation"
+          - id: "5.3.2"
+            title: "Ensure that all Namespaces have NetworkPolicies defined"
+            mappings:
+              - check: "network.validation"
+          - id: "5.7.1"
+            title: "Create administrative boundaries between resources"
+            mappings:
+              - check: "rbac.validation"
+              - check: "podSecurity.enforce"
