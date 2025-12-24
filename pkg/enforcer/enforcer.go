@@ -130,6 +130,10 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 
 		u := &unstructured.Unstructured{Object: unstructuredPolicy}
 
+		// CRITICAL: Ensure APIVersion and Kind are set (required by dynamic client)
+		u.SetAPIVersion("kyverno.io/v1")
+		u.SetKind("ClusterPolicy")
+
 		// Try to create the policy, or update if it already exists
 		policyName := u.GetName()
 		_, createErr := e.dynamicClient.Resource(gvr).Create(ctx, u, metav1.CreateOptions{})
