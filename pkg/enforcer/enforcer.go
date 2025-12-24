@@ -21,6 +21,7 @@ type Enforcer struct {
 	dynamicClient    dynamic.Interface
 	kyvernoGen       *kyverno.Generator
 	kyvernoInstaller *kyverno.Installer
+	kyvernoValidator *kyverno.Validator
 }
 
 // NewEnforcer creates a new policy enforcer.
@@ -30,6 +31,7 @@ func NewEnforcer(client kubernetes.Interface, dynamicClient dynamic.Interface) *
 		dynamicClient:    dynamicClient,
 		kyvernoGen:       kyverno.NewGenerator(),
 		kyvernoInstaller: kyverno.NewInstaller(),
+		kyvernoValidator: kyverno.NewValidator(),
 	}
 }
 
@@ -79,6 +81,11 @@ func (e *Enforcer) Enforce(ctx context.Context, clusterSpec *spec.ClusterSpecifi
 
 	result.Policies = policies
 	result.PoliciesGenerated = len(policies)
+
+	// Validate generated policies before deployment
+	if err := e.validatePolicies(policies); err != nil {
+		return nil, fmt.Errorf("policy validation failed: %w", err)
+	}
 
 	// If dry-run, stop here
 	if opts.DryRun {
@@ -144,4 +151,26 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 	}
 
 	return applied, errors
+}
+
+// validatePolicies validates all generated policies before deployment.
+func (e *Enforcer) validatePolicies(policies []runtime.Object) error {
+	var clusterPolicies []*kyverno.ClusterPolicy
+
+	// Convert runtime.Object to ClusterPolicy for validation
+	for _, policyObj := range policies {
+		policy, ok := policyObj.(*kyverno.ClusterPolicy)
+		if !ok {
+			return fmt.Errorf("policy is not a ClusterPolicy (got %T)", policyObj)
+		}
+		clusterPolicies = append(clusterPolicies, policy)
+	}
+
+	// Validate all policies
+	validationErrors := e.kyvernoValidator.ValidateBatch(clusterPolicies)
+	if len(validationErrors) > 0 {
+		return kyverno.FormatValidationErrors(validationErrors)
+	}
+
+	return nil
 }
