@@ -3,10 +3,14 @@ package enforcer
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cloudcwfranck/kspec/pkg/enforcer/kyverno"
 	"github.com/cloudcwfranck/kspec/pkg/spec"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -102,33 +106,42 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 	applied := 0
 	errors := []string{}
 
-	// Note: In v1.0, we don't actually apply policies
-	// This would require using the dynamic client to create ClusterPolicy resources
-	// For now, we just return success
+	// Define Kyverno ClusterPolicy GVR
+	gvr := schema.GroupVersionResource{
+		Group:    "kyverno.io",
+		Version:  "v1",
+		Resource: "clusterpolicies",
+	}
 
-	// Future implementation would use dynamic client:
-	// gvr := schema.GroupVersionResource{
-	//     Group:    "kyverno.io",
-	//     Version:  "v1",
-	//     Resource: "clusterpolicies",
-	// }
-	//
-	// for _, policy := range policies {
-	//     unstructuredPolicy, ok := policy.(*unstructured.Unstructured)
-	//     if !ok {
-	//         errors = append(errors, "policy is not unstructured")
-	//         continue
-	//     }
-	//     _, err := e.dynamicClient.Resource(gvr).Create(ctx, unstructuredPolicy, metav1.CreateOptions{})
-	//     if err != nil {
-	//         errors = append(errors, err.Error())
-	//         continue
-	//     }
-	//     applied++
-	// }
+	for _, policyObj := range policies {
+		// Convert our typed ClusterPolicy to unstructured for dynamic client
+		unstructuredPolicy, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policyObj)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("failed to convert policy to unstructured: %v", err))
+			continue
+		}
 
-	// For v1.0, mark all as successfully generated (dry-run style)
-	applied = len(policies)
+		u := &unstructured.Unstructured{Object: unstructuredPolicy}
+
+		// Try to create the policy, or update if it already exists
+		policyName := u.GetName()
+		_, createErr := e.dynamicClient.Resource(gvr).Create(ctx, u, metav1.CreateOptions{})
+		if createErr != nil {
+			// If policy exists, update it
+			if strings.Contains(createErr.Error(), "already exists") {
+				_, updateErr := e.dynamicClient.Resource(gvr).Update(ctx, u, metav1.UpdateOptions{})
+				if updateErr != nil {
+					errors = append(errors, fmt.Sprintf("failed to update policy %s: %v", policyName, updateErr))
+					continue
+				}
+			} else {
+				errors = append(errors, fmt.Sprintf("failed to create policy %s: %v", policyName, createErr))
+				continue
+			}
+		}
+
+		applied++
+	}
 
 	return applied, errors
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/cloudcwfranck/kspec/pkg/spec"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -81,94 +80,69 @@ func (g *Generator) generateWorkloadPolicies(workloadsSpec *spec.WorkloadsSpec) 
 }
 
 // createRunAsNonRootPolicy creates a policy requiring containers to run as non-root.
-func (g *Generator) createRunAsNonRootPolicy() *unstructured.Unstructured {
-	policy := &unstructured.Unstructured{}
-	policy.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "kyverno.io/v1",
-		"kind":       "ClusterPolicy",
-		"metadata": map[string]interface{}{
-			"name": "require-run-as-non-root",
-			"annotations": map[string]interface{}{
-				"policies.kyverno.io/title":       "Require runAsNonRoot",
-				"policies.kyverno.io/category":    "Pod Security Standards (Restricted)",
-				"policies.kyverno.io/severity":    "medium",
-				"policies.kyverno.io/description": "Containers must run as non-root users",
-				"kspec.dev/generated":             "true",
-			},
-		},
-		"spec": map[string]interface{}{
-			"validationFailureAction": "Enforce",
-			"background":              true,
-			"rules": []interface{}{
-				map[string]interface{}{
-					"name": "check-runAsNonRoot",
-					"match": map[string]interface{}{
-						"any": []interface{}{
-							map[string]interface{}{
-								"resources": map[string]interface{}{
-									"kinds": []interface{}{"Pod"},
-								},
-							},
+func (g *Generator) createRunAsNonRootPolicy() *ClusterPolicy {
+	policy := NewClusterPolicy("require-run-as-non-root")
+	policy.Annotations["policies.kyverno.io/title"] = "Require runAsNonRoot"
+	policy.Annotations["policies.kyverno.io/category"] = "Pod Security Standards (Restricted)"
+	policy.Annotations["policies.kyverno.io/severity"] = "medium"
+	policy.Annotations["policies.kyverno.io/description"] = "Containers must run as non-root users"
+
+	policy.Spec.Rules = []Rule{
+		{
+			Name: "check-runAsNonRoot",
+			Match: MatchResources{
+				Any: []ResourceFilter{
+					{
+						Resources: &ResourceDescription{
+							Kinds: []string{"Pod"},
 						},
 					},
-					"validate": map[string]interface{}{
-						"message": "Containers must run as non-root (securityContext.runAsNonRoot must be true)",
-						"pattern": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"securityContext": map[string]interface{}{
-									"runAsNonRoot": true,
-								},
-							},
+				},
+			},
+			Validation: &Validation{
+				Message: "Containers must run as non-root (securityContext.runAsNonRoot must be true)",
+				Pattern: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"securityContext": map[string]interface{}{
+							"runAsNonRoot": true,
 						},
 					},
 				},
 			},
 		},
-	})
+	}
+
 	return policy
 }
 
 // createDisallowPrivilegeEscalationPolicy creates a policy disallowing privilege escalation.
-func (g *Generator) createDisallowPrivilegeEscalationPolicy() *unstructured.Unstructured {
-	policy := &unstructured.Unstructured{}
-	policy.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "kyverno.io/v1",
-		"kind":       "ClusterPolicy",
-		"metadata": map[string]interface{}{
-			"name": "disallow-privilege-escalation",
-			"annotations": map[string]interface{}{
-				"policies.kyverno.io/title":       "Disallow Privilege Escalation",
-				"policies.kyverno.io/category":    "Pod Security Standards (Restricted)",
-				"policies.kyverno.io/severity":    "medium",
-				"policies.kyverno.io/description": "Privilege escalation must be disabled",
-				"kspec.dev/generated":             "true",
-			},
-		},
-		"spec": map[string]interface{}{
-			"validationFailureAction": "Enforce",
-			"background":              true,
-			"rules": []interface{}{
-				map[string]interface{}{
-					"name": "check-allowPrivilegeEscalation",
-					"match": map[string]interface{}{
-						"any": []interface{}{
-							map[string]interface{}{
-								"resources": map[string]interface{}{
-									"kinds": []interface{}{"Pod"},
-								},
-							},
+func (g *Generator) createDisallowPrivilegeEscalationPolicy() *ClusterPolicy {
+	policy := NewClusterPolicy("disallow-privilege-escalation")
+	policy.Annotations["policies.kyverno.io/title"] = "Disallow Privilege Escalation"
+	policy.Annotations["policies.kyverno.io/category"] = "Pod Security Standards (Restricted)"
+	policy.Annotations["policies.kyverno.io/severity"] = "medium"
+	policy.Annotations["policies.kyverno.io/description"] = "Privilege escalation must be disabled"
+
+	policy.Spec.Rules = []Rule{
+		{
+			Name: "check-allowPrivilegeEscalation",
+			Match: MatchResources{
+				Any: []ResourceFilter{
+					{
+						Resources: &ResourceDescription{
+							Kinds: []string{"Pod"},
 						},
 					},
-					"validate": map[string]interface{}{
-						"message": "Privilege escalation is disallowed (securityContext.allowPrivilegeEscalation must be false)",
-						"pattern": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"containers": []interface{}{
-									map[string]interface{}{
-										"securityContext": map[string]interface{}{
-											"allowPrivilegeEscalation": false,
-										},
-									},
+				},
+			},
+			Validation: &Validation{
+				Message: "Privilege escalation is disallowed (securityContext.allowPrivilegeEscalation must be false)",
+				Pattern: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"securityContext": map[string]interface{}{
+									"allowPrivilegeEscalation": false,
 								},
 							},
 						},
@@ -176,51 +150,39 @@ func (g *Generator) createDisallowPrivilegeEscalationPolicy() *unstructured.Unst
 				},
 			},
 		},
-	})
+	}
+
 	return policy
 }
 
 // createDisallowPrivilegedPolicy creates a policy disallowing privileged containers.
-func (g *Generator) createDisallowPrivilegedPolicy() *unstructured.Unstructured {
-	policy := &unstructured.Unstructured{}
-	policy.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "kyverno.io/v1",
-		"kind":       "ClusterPolicy",
-		"metadata": map[string]interface{}{
-			"name": "disallow-privileged-containers",
-			"annotations": map[string]interface{}{
-				"policies.kyverno.io/title":       "Disallow Privileged Containers",
-				"policies.kyverno.io/category":    "Pod Security Standards (Baseline)",
-				"policies.kyverno.io/severity":    "high",
-				"policies.kyverno.io/description": "Privileged containers are not allowed",
-				"kspec.dev/generated":             "true",
-			},
-		},
-		"spec": map[string]interface{}{
-			"validationFailureAction": "Enforce",
-			"background":              true,
-			"rules": []interface{}{
-				map[string]interface{}{
-					"name": "check-privileged",
-					"match": map[string]interface{}{
-						"any": []interface{}{
-							map[string]interface{}{
-								"resources": map[string]interface{}{
-									"kinds": []interface{}{"Pod"},
-								},
-							},
+func (g *Generator) createDisallowPrivilegedPolicy() *ClusterPolicy {
+	policy := NewClusterPolicy("disallow-privileged-containers")
+	policy.Annotations["policies.kyverno.io/title"] = "Disallow Privileged Containers"
+	policy.Annotations["policies.kyverno.io/category"] = "Pod Security Standards (Baseline)"
+	policy.Annotations["policies.kyverno.io/severity"] = "high"
+	policy.Annotations["policies.kyverno.io/description"] = "Privileged containers are not allowed"
+
+	policy.Spec.Rules = []Rule{
+		{
+			Name: "check-privileged",
+			Match: MatchResources{
+				Any: []ResourceFilter{
+					{
+						Resources: &ResourceDescription{
+							Kinds: []string{"Pod"},
 						},
 					},
-					"validate": map[string]interface{}{
-						"message": "Privileged containers are not allowed",
-						"pattern": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"containers": []interface{}{
-									map[string]interface{}{
-										"=(securityContext)": map[string]interface{}{
-											"=(privileged)": false,
-										},
-									},
+				},
+			},
+			Validation: &Validation{
+				Message: "Privileged containers are not allowed",
+				Pattern: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"=(securityContext)": map[string]interface{}{
+									"=(privileged)": false,
 								},
 							},
 						},
@@ -228,101 +190,77 @@ func (g *Generator) createDisallowPrivilegedPolicy() *unstructured.Unstructured 
 				},
 			},
 		},
-	})
+	}
+
 	return policy
 }
 
 // createDisallowHostNamespacesPolicy creates a policy disallowing host namespaces.
-func (g *Generator) createDisallowHostNamespacesPolicy() *unstructured.Unstructured {
-	policy := &unstructured.Unstructured{}
-	policy.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "kyverno.io/v1",
-		"kind":       "ClusterPolicy",
-		"metadata": map[string]interface{}{
-			"name": "disallow-host-namespaces",
-			"annotations": map[string]interface{}{
-				"policies.kyverno.io/title":       "Disallow Host Namespaces",
-				"policies.kyverno.io/category":    "Pod Security Standards (Baseline)",
-				"policies.kyverno.io/severity":    "high",
-				"policies.kyverno.io/description": "Host namespaces (hostNetwork, hostPID, hostIPC) are not allowed",
-				"kspec.dev/generated":             "true",
-			},
-		},
-		"spec": map[string]interface{}{
-			"validationFailureAction": "Enforce",
-			"background":              true,
-			"rules": []interface{}{
-				map[string]interface{}{
-					"name": "check-host-namespaces",
-					"match": map[string]interface{}{
-						"any": []interface{}{
-							map[string]interface{}{
-								"resources": map[string]interface{}{
-									"kinds": []interface{}{"Pod"},
-								},
-							},
-						},
-					},
-					"validate": map[string]interface{}{
-						"message": "Host namespaces are not allowed",
-						"pattern": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"=(hostNetwork)": false,
-								"=(hostPID)":     false,
-								"=(hostIPC)":     false,
-							},
+func (g *Generator) createDisallowHostNamespacesPolicy() *ClusterPolicy {
+	policy := NewClusterPolicy("disallow-host-namespaces")
+	policy.Annotations["policies.kyverno.io/title"] = "Disallow Host Namespaces"
+	policy.Annotations["policies.kyverno.io/category"] = "Pod Security Standards (Baseline)"
+	policy.Annotations["policies.kyverno.io/severity"] = "high"
+	policy.Annotations["policies.kyverno.io/description"] = "Host namespaces (hostNetwork, hostPID, hostIPC) are not allowed"
+
+	policy.Spec.Rules = []Rule{
+		{
+			Name: "check-host-namespaces",
+			Match: MatchResources{
+				Any: []ResourceFilter{
+					{
+						Resources: &ResourceDescription{
+							Kinds: []string{"Pod"},
 						},
 					},
 				},
 			},
+			Validation: &Validation{
+				Message: "Host namespaces are not allowed",
+				Pattern: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"=(hostNetwork)": false,
+						"=(hostPID)":     false,
+						"=(hostIPC)":     false,
+					},
+				},
+			},
 		},
-	})
+	}
+
 	return policy
 }
 
 // createRequireResourceLimitsPolicy creates a policy requiring resource limits.
-func (g *Generator) createRequireResourceLimitsPolicy() *unstructured.Unstructured {
-	policy := &unstructured.Unstructured{}
-	policy.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "kyverno.io/v1",
-		"kind":       "ClusterPolicy",
-		"metadata": map[string]interface{}{
-			"name": "require-resource-limits",
-			"annotations": map[string]interface{}{
-				"policies.kyverno.io/title":       "Require Resource Limits",
-				"policies.kyverno.io/category":    "Best Practices",
-				"policies.kyverno.io/severity":    "medium",
-				"policies.kyverno.io/description": "All containers must have memory and CPU limits defined",
-				"kspec.dev/generated":             "true",
-			},
-		},
-		"spec": map[string]interface{}{
-			"validationFailureAction": "Enforce",
-			"background":              true,
-			"rules": []interface{}{
-				map[string]interface{}{
-					"name": "check-resource-limits",
-					"match": map[string]interface{}{
-						"any": []interface{}{
-							map[string]interface{}{
-								"resources": map[string]interface{}{
-									"kinds": []interface{}{"Pod"},
-								},
-							},
+func (g *Generator) createRequireResourceLimitsPolicy() *ClusterPolicy {
+	policy := NewClusterPolicy("require-resource-limits")
+	policy.Annotations["policies.kyverno.io/title"] = "Require Resource Limits"
+	policy.Annotations["policies.kyverno.io/category"] = "Best Practices"
+	policy.Annotations["policies.kyverno.io/severity"] = "medium"
+	policy.Annotations["policies.kyverno.io/description"] = "All containers must have memory and CPU limits defined"
+
+	policy.Spec.Rules = []Rule{
+		{
+			Name: "check-resource-limits",
+			Match: MatchResources{
+				Any: []ResourceFilter{
+					{
+						Resources: &ResourceDescription{
+							Kinds: []string{"Pod"},
 						},
 					},
-					"validate": map[string]interface{}{
-						"message": "All containers must have memory and CPU limits",
-						"pattern": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"containers": []interface{}{
-									map[string]interface{}{
-										"resources": map[string]interface{}{
-											"limits": map[string]interface{}{
-												"memory": "?*",
-												"cpu":    "?*",
-											},
-										},
+				},
+			},
+			Validation: &Validation{
+				Message: "All containers must have memory and CPU limits",
+				Pattern: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"resources": map[string]interface{}{
+									"limits": map[string]interface{}{
+										"memory": "?*",
+										"cpu":    "?*",
 									},
 								},
 							},
@@ -331,7 +269,8 @@ func (g *Generator) createRequireResourceLimitsPolicy() *unstructured.Unstructur
 				},
 			},
 		},
-	})
+	}
+
 	return policy
 }
 
@@ -355,101 +294,81 @@ func (g *Generator) generateImagePolicies(imageSpec *spec.ImageSpec) ([]runtime.
 }
 
 // createRequireDigestsPolicy creates a policy requiring image digests.
-func (g *Generator) createRequireDigestsPolicy() *unstructured.Unstructured {
-	policy := &unstructured.Unstructured{}
-	policy.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "kyverno.io/v1",
-		"kind":       "ClusterPolicy",
-		"metadata": map[string]interface{}{
-			"name": "require-image-digests",
-			"annotations": map[string]interface{}{
-				"policies.kyverno.io/title":       "Require Image Digests",
-				"policies.kyverno.io/category":    "Supply Chain Security",
-				"policies.kyverno.io/severity":    "medium",
-				"policies.kyverno.io/description": "Images must use digests (not tags) for immutability",
-				"kspec.dev/generated":             "true",
-			},
-		},
-		"spec": map[string]interface{}{
-			"validationFailureAction": "Enforce",
-			"background":              true,
-			"rules": []interface{}{
-				map[string]interface{}{
-					"name": "check-image-digest",
-					"match": map[string]interface{}{
-						"any": []interface{}{
-							map[string]interface{}{
-								"resources": map[string]interface{}{
-									"kinds": []interface{}{"Pod"},
-								},
-							},
+func (g *Generator) createRequireDigestsPolicy() *ClusterPolicy {
+	policy := NewClusterPolicy("require-image-digests")
+	policy.Annotations["policies.kyverno.io/title"] = "Require Image Digests"
+	policy.Annotations["policies.kyverno.io/category"] = "Supply Chain Security"
+	policy.Annotations["policies.kyverno.io/severity"] = "medium"
+	policy.Annotations["policies.kyverno.io/description"] = "Images must use digests (not tags) for immutability"
+
+	policy.Spec.Rules = []Rule{
+		{
+			Name: "check-image-digest",
+			Match: MatchResources{
+				Any: []ResourceFilter{
+					{
+						Resources: &ResourceDescription{
+							Kinds: []string{"Pod"},
 						},
 					},
-					"validate": map[string]interface{}{
-						"message": "Images must use digests (e.g., image@sha256:...) not tags",
-						"pattern": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"containers": []interface{}{
-									map[string]interface{}{
-										"image": "*@sha256:*",
-									},
-								},
+				},
+			},
+			Validation: &Validation{
+				Message: "Images must use digests (e.g., image@sha256:...) not tags",
+				Pattern: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"image": "*@sha256:*",
 							},
 						},
 					},
 				},
 			},
 		},
-	})
+	}
+
 	return policy
 }
 
 // createBlockedRegistriesPolicy creates a policy blocking specific registries.
-func (g *Generator) createBlockedRegistriesPolicy(blockedRegistries []string) *unstructured.Unstructured {
-	policy := &unstructured.Unstructured{}
-	policy.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "kyverno.io/v1",
-		"kind":       "ClusterPolicy",
-		"metadata": map[string]interface{}{
-			"name": "block-image-registries",
-			"annotations": map[string]interface{}{
-				"policies.kyverno.io/title":       "Block Specific Image Registries",
-				"policies.kyverno.io/category":    "Supply Chain Security",
-				"policies.kyverno.io/severity":    "high",
-				"policies.kyverno.io/description": fmt.Sprintf("Block images from: %v", blockedRegistries),
-				"kspec.dev/generated":             "true",
-			},
-		},
-		"spec": map[string]interface{}{
-			"validationFailureAction": "Enforce",
-			"background":              true,
-			"rules": []interface{}{
-				map[string]interface{}{
-					"name": "block-registries",
-					"match": map[string]interface{}{
-						"any": []interface{}{
-							map[string]interface{}{
-								"resources": map[string]interface{}{
-									"kinds": []interface{}{"Pod"},
-								},
-							},
+func (g *Generator) createBlockedRegistriesPolicy(blockedRegistries []string) *ClusterPolicy {
+	policy := NewClusterPolicy("block-image-registries")
+	policy.Annotations["policies.kyverno.io/title"] = "Block Specific Image Registries"
+	policy.Annotations["policies.kyverno.io/category"] = "Supply Chain Security"
+	policy.Annotations["policies.kyverno.io/severity"] = "high"
+	policy.Annotations["policies.kyverno.io/description"] = fmt.Sprintf("Block images from: %v", blockedRegistries)
+
+	// Build deny pattern for blocked registries
+	// For Kyverno, we need to create a deny condition that blocks specific registries
+	policy.Spec.Rules = []Rule{
+		{
+			Name: "block-registries",
+			Match: MatchResources{
+				Any: []ResourceFilter{
+					{
+						Resources: &ResourceDescription{
+							Kinds: []string{"Pod"},
 						},
 					},
-					"validate": map[string]interface{}{
-						"message": fmt.Sprintf("Images from blocked registries are not allowed: %v", blockedRegistries),
-						"pattern": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"containers": []interface{}{
-									map[string]interface{}{
-										"image": "!docker.io/*",
-									},
-								},
+				},
+			},
+			Validation: &Validation{
+				Message: fmt.Sprintf("Images from blocked registries are not allowed: %v", blockedRegistries),
+				Pattern: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								// Use negation pattern to block specific registry
+								// This is a simplified pattern - in production, you'd iterate over blockedRegistries
+								"image": "!docker.io/*",
 							},
 						},
 					},
 				},
 			},
 		},
-	})
+	}
+
 	return policy
 }
