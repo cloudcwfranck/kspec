@@ -246,7 +246,7 @@ func printTextReport(result *scanner.ScanResult) {
 	// Critical failures
 	criticalFailures := filterResults(result.Results, scanner.StatusFail, scanner.SeverityCritical)
 	if len(criticalFailures) > 0 {
-		fmt.Printf("❌ CRITICAL FAILURES (%d)\n", len(criticalFailures))
+		fmt.Printf("[CRITICAL] FAILURES (%d)\n", len(criticalFailures))
 		fmt.Printf("─────────────────────────\n")
 		for _, r := range criticalFailures {
 			fmt.Printf("[%s] %s\n", r.Name, r.Message)
@@ -261,7 +261,7 @@ func printTextReport(result *scanner.ScanResult) {
 	otherFailures := filterResults(result.Results, scanner.StatusFail, "")
 	otherFailures = excludeBySeverity(otherFailures, scanner.SeverityCritical)
 	if len(otherFailures) > 0 {
-		fmt.Printf("⚠️  FAILURES (%d)\n", len(otherFailures))
+		fmt.Printf("[FAIL] FAILURES (%d)\n", len(otherFailures))
 		fmt.Printf("─────────────────────────\n")
 		for _, r := range otherFailures {
 			fmt.Printf("[%s] %s\n", r.Name, r.Message)
@@ -275,7 +275,7 @@ func printTextReport(result *scanner.ScanResult) {
 	// Warnings
 	warnings := filterResults(result.Results, scanner.StatusWarn, "")
 	if len(warnings) > 0 {
-		fmt.Printf("⚠️  WARNINGS (%d)\n", len(warnings))
+		fmt.Printf("[WARN] WARNINGS (%d)\n", len(warnings))
 		fmt.Printf("─────────────────\n")
 		for _, r := range warnings {
 			fmt.Printf("[%s] %s\n", r.Name, r.Message)
@@ -286,10 +286,10 @@ func printTextReport(result *scanner.ScanResult) {
 	// Passed checks
 	passed := filterResults(result.Results, scanner.StatusPass, "")
 	if len(passed) > 0 {
-		fmt.Printf("✅ PASSED CHECKS (%d)\n", len(passed))
+		fmt.Printf("[PASS] PASSED CHECKS (%d)\n", len(passed))
 		fmt.Printf("─────────────────────\n")
 		for _, r := range passed {
-			fmt.Printf("✓ %s\n", r.Message)
+			fmt.Printf("  %s\n", r.Message)
 		}
 		fmt.Printf("\n")
 	}
@@ -424,22 +424,22 @@ func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile 
 
 	// Kyverno status
 	if result.KyvernoInstalled {
-		fmt.Printf("✅ Kyverno Status: Installed\n")
+		fmt.Printf("[OK] Kyverno Status: Installed\n")
 		if result.KyvernoVersion != "" {
-			fmt.Printf("   Version: %s\n", result.KyvernoVersion)
+			fmt.Printf("     Version: %s\n", result.KyvernoVersion)
 		}
 	} else {
-		fmt.Printf("❌ Kyverno Status: Not Installed\n")
+		fmt.Printf("[ERROR] Kyverno Status: Not Installed\n")
 	}
 	fmt.Printf("\n")
 
 	// Policies generated
-	fmt.Printf("📋 Policies Generated: %d\n", result.PoliciesGenerated)
+	fmt.Printf("Policies Generated: %d\n", result.PoliciesGenerated)
 
 	if dryRun {
-		fmt.Printf("   Mode: Dry-run (policies not deployed)\n")
+		fmt.Printf("Mode: Dry-run (policies not deployed)\n")
 	} else {
-		fmt.Printf("   Policies Applied: %d\n", result.PoliciesApplied)
+		fmt.Printf("Policies Applied: %d\n", result.PoliciesApplied)
 	}
 	fmt.Printf("\n")
 
@@ -453,7 +453,7 @@ func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile 
 			if unstruct, ok := policy.(interface{ GetName() string }); ok {
 				policyName = unstruct.GetName()
 			}
-			fmt.Printf("%d. %s\n", i+1, policyName)
+			fmt.Printf("  %d. %s\n", i+1, policyName)
 		}
 		fmt.Printf("\n")
 	}
@@ -461,17 +461,17 @@ func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile 
 	// Save to file if requested
 	if outputFile != "" && result.PoliciesGenerated > 0 {
 		if err := savePolicies(result.Policies, outputFile); err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  Failed to save policies to file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[ERROR] Failed to save policies to file: %v\n", err)
 		} else {
-			fmt.Printf("💾 Policies saved to: %s\n\n", outputFile)
+			fmt.Printf("[OK] Policies saved to: %s\n\n", outputFile)
 		}
 	}
 
 	// Errors
 	if len(result.Errors) > 0 {
-		fmt.Printf("⚠️  Errors (%d):\n", len(result.Errors))
+		fmt.Printf("[ERROR] Policy Application Errors (%d):\n", len(result.Errors))
 		for _, err := range result.Errors {
-			fmt.Printf("   - %s\n", err)
+			fmt.Printf("  - %s\n", err)
 		}
 		fmt.Printf("\n")
 	}
@@ -489,7 +489,7 @@ func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile 
 		}
 		fmt.Printf("\n")
 	} else if result.PoliciesApplied > 0 {
-		fmt.Printf("✅ Policies successfully deployed!\n")
+		fmt.Printf("[OK] Policies successfully deployed\n")
 		fmt.Printf("\n")
 		fmt.Printf("Verify policies:\n")
 		fmt.Printf("  kubectl get clusterpolicies\n")
