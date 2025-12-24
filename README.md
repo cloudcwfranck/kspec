@@ -100,6 +100,46 @@ COMPLIANCE: 1/1 checks passed (100%)
 ✓ Cluster version 1.28.0 is within spec range 1.26.0 - 1.30.0
 ```
 
+4. **Enforce policies (prevent future violations)**
+
+```bash
+# Generate policies (dry-run, see what would be created)
+kspec enforce --spec cluster-spec.yaml --dry-run
+
+# Save generated policies to file
+kspec enforce --spec cluster-spec.yaml --dry-run --output policies.yaml
+
+# Deploy policies to cluster (requires Kyverno installed)
+kspec enforce --spec cluster-spec.yaml
+```
+
+**Enforcement Output:**
+```
+┌─────────────────────────────────────────┐
+│ kspec v1.0.0 — Policy Enforcement       │
+└─────────────────────────────────────────┘
+
+✅ Kyverno Status: Installed
+   Version: ghcr.io/kyverno/kyverno:v1.11.0
+
+📋 Policies Generated: 7
+
+Generated Policies:
+───────────────────
+1. require-run-as-non-root
+2. disallow-privilege-escalation
+3. disallow-privileged-containers
+4. disallow-host-namespaces
+5. require-resource-limits
+6. require-image-digests
+7. block-image-registries
+
+Next Steps:
+───────────
+1. Review the generated policies above
+2. Run: kspec enforce --spec <file> (without --dry-run) to deploy
+```
+
 ## Example Specifications
 
 See `specs/examples/` for ready-to-use templates:
@@ -138,11 +178,20 @@ See `specs/examples/` for ready-to-use templates:
 - 60+ comprehensive unit tests with 84.6% coverage
 - Comprehensive example spec demonstrating all checks
 
+✅ **Phase 5: Policy Enforcement** (NEW)
+- **`kspec enforce` command** - Generate and deploy Kyverno policies from specs
+- **Kyverno Policy Generator** - Automatic policy creation from workload/image requirements
+- **Dry-run mode** - Preview policies before deployment
+- **Installation checking** - Verify Kyverno is installed
+- **Policy export** - Save generated policies to YAML files
+- **7 policy types**: runAsNonRoot, privilege escalation, privileged containers, host namespaces, resource limits, image digests, registry blocks
+
 📅 **Roadmap (Future Phases)**
-- Phase 5: Policy enforcement with Kyverno (generate & deploy policies)
 - Phase 6: Drift detection & remediation automation
+- Additional policy types: Network policies, RBAC policies
+- Multi-cluster policy deployment
+- Policy testing framework
 - Additional checks: Image vulnerability scanning, secret management validation
-- Multi-cluster management
 
 ## Development
 
@@ -208,4 +257,4 @@ Apache 2.0 - see [LICENSE](./LICENSE) for details.
 
 ---
 
-**Status**: Phase 4 complete - Advanced compliance checks implemented. See [AGENTS.md](./AGENTS.md) for full implementation roadmap.
+**Status**: Phase 5 complete - Policy enforcement with Kyverno implemented. Detection + Prevention complete! See [AGENTS.md](./AGENTS.md) for full implementation roadmap.

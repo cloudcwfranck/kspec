@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cloudcwfranck/kspec/pkg/enforcer"
 	"github.com/cloudcwfranck/kspec/pkg/reporter"
 	"github.com/cloudcwfranck/kspec/pkg/scanner"
 	"github.com/cloudcwfranck/kspec/pkg/scanner/checks"
 	"github.com/cloudcwfranck/kspec/pkg/spec"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -37,6 +41,7 @@ enforces security policies, and generates compliance evidence for audits.`,
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newValidateCmd())
 	rootCmd.AddCommand(newScanCmd())
+	rootCmd.AddCommand(newEnforceCmd())
 
 	return rootCmd
 }
@@ -312,4 +317,205 @@ func excludeBySeverity(results []scanner.CheckResult, severity scanner.Severity)
 		}
 	}
 	return filtered
+}
+
+func newEnforceCmd() *cobra.Command {
+	var (
+		specFile       string
+		kubeconfigPath string
+		dryRun         bool
+		skipInstall    bool
+		outputFile     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "enforce",
+		Short: "Generate and deploy Kyverno policies from specification",
+		Long: `Enforce generates Kyverno ClusterPolicy resources from a kspec specification
+and optionally deploys them to the cluster. This enables proactive policy enforcement
+to prevent non-compliant workloads from being deployed.`,
+		Example: `  # Generate policies (dry-run, see what would be created)
+  kspec enforce --spec cluster-spec.yaml --dry-run
+
+  # Deploy policies to cluster (requires Kyverno installed)
+  kspec enforce --spec cluster-spec.yaml
+
+  # Save generated policies to file
+  kspec enforce --spec cluster-spec.yaml --dry-run --output policies.yaml
+
+  # Skip Kyverno installation check
+  kspec enforce --spec cluster-spec.yaml --skip-install`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+
+			// Load spec
+			clusterSpec, err := spec.LoadFromFile(specFile)
+			if err != nil {
+				return fmt.Errorf("failed to load spec: %w", err)
+			}
+
+			// Validate spec
+			if err := spec.Validate(clusterSpec); err != nil {
+				return fmt.Errorf("spec validation failed: %w", err)
+			}
+
+			// Create Kubernetes client
+			client, err := createKubernetesClient(kubeconfigPath)
+			if err != nil {
+				return fmt.Errorf("failed to create Kubernetes client: %w", err)
+			}
+
+			// Create dynamic client for applying policies
+			// Use default kubeconfig path if not specified
+			kubeconfigToUse := kubeconfigPath
+			if kubeconfigToUse == "" {
+				kubeconfigToUse = os.Getenv("KUBECONFIG")
+				if kubeconfigToUse == "" {
+					kubeconfigToUse = clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
+				}
+			}
+
+			config, err := clientcmd.BuildConfigFromFlags("", kubeconfigToUse)
+			if err != nil {
+				return fmt.Errorf("failed to build config: %w", err)
+			}
+			dynamicClient, err := dynamic.NewForConfig(config)
+			if err != nil {
+				return fmt.Errorf("failed to create dynamic client: %w", err)
+			}
+
+			// Create enforcer
+			enf := enforcer.NewEnforcer(client, dynamicClient)
+
+			// Enforce policies
+			fmt.Fprintf(os.Stderr, "Generating policies from spec...\n")
+			result, err := enf.Enforce(ctx, clusterSpec, enforcer.EnforceOptions{
+				DryRun:      dryRun,
+				SkipInstall: skipInstall,
+			})
+			if err != nil {
+				return fmt.Errorf("enforcement failed: %w", err)
+			}
+
+			// Print results
+			printEnforceResult(result, dryRun, outputFile)
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&specFile, "spec", "s", "", "Path to cluster spec file (required)")
+	cmd.Flags().StringVar(&kubeconfigPath, "kubeconfig", "", "Path to kubeconfig file (default: $KUBECONFIG or ~/.kube/config)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Generate policies without deploying them")
+	cmd.Flags().BoolVar(&skipInstall, "skip-install", false, "Skip Kyverno installation check")
+	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Save generated policies to file (YAML)")
+	cmd.MarkFlagRequired("spec")
+
+	return cmd
+}
+
+// printEnforceResult prints the enforcement result.
+func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile string) {
+	fmt.Printf("\n")
+	fmt.Printf("┌─────────────────────────────────────────┐\n")
+	fmt.Printf("│ kspec v%s — Policy Enforcement       │\n", version)
+	fmt.Printf("└─────────────────────────────────────────┘\n")
+	fmt.Printf("\n")
+
+	// Kyverno status
+	if result.KyvernoInstalled {
+		fmt.Printf("✅ Kyverno Status: Installed\n")
+		if result.KyvernoVersion != "" {
+			fmt.Printf("   Version: %s\n", result.KyvernoVersion)
+		}
+	} else {
+		fmt.Printf("❌ Kyverno Status: Not Installed\n")
+	}
+	fmt.Printf("\n")
+
+	// Policies generated
+	fmt.Printf("📋 Policies Generated: %d\n", result.PoliciesGenerated)
+
+	if dryRun {
+		fmt.Printf("   Mode: Dry-run (policies not deployed)\n")
+	} else {
+		fmt.Printf("   Policies Applied: %d\n", result.PoliciesApplied)
+	}
+	fmt.Printf("\n")
+
+	// List generated policies
+	if result.PoliciesGenerated > 0 {
+		fmt.Printf("Generated Policies:\n")
+		fmt.Printf("───────────────────\n")
+		for i, policy := range result.Policies {
+			// Extract policy name from unstructured object
+			policyName := fmt.Sprintf("policy-%d", i+1)
+			if unstruct, ok := policy.(interface{ GetName() string }); ok {
+				policyName = unstruct.GetName()
+			}
+			fmt.Printf("%d. %s\n", i+1, policyName)
+		}
+		fmt.Printf("\n")
+	}
+
+	// Save to file if requested
+	if outputFile != "" && result.PoliciesGenerated > 0 {
+		if err := savePolicies(result.Policies, outputFile); err != nil {
+			fmt.Fprintf(os.Stderr, "⚠️  Failed to save policies to file: %v\n", err)
+		} else {
+			fmt.Printf("💾 Policies saved to: %s\n\n", outputFile)
+		}
+	}
+
+	// Errors
+	if len(result.Errors) > 0 {
+		fmt.Printf("⚠️  Errors (%d):\n", len(result.Errors))
+		for _, err := range result.Errors {
+			fmt.Printf("   - %s\n", err)
+		}
+		fmt.Printf("\n")
+	}
+
+	// Next steps
+	if dryRun {
+		fmt.Printf("Next Steps:\n")
+		fmt.Printf("───────────\n")
+		if !result.KyvernoInstalled {
+			fmt.Printf("1. Install Kyverno in your cluster\n")
+			fmt.Printf("2. Run: kspec enforce --spec <file> (without --dry-run)\n")
+		} else {
+			fmt.Printf("1. Review the generated policies above\n")
+			fmt.Printf("2. Run: kspec enforce --spec <file> (without --dry-run) to deploy\n")
+		}
+		fmt.Printf("\n")
+	} else if result.PoliciesApplied > 0 {
+		fmt.Printf("✅ Policies successfully deployed!\n")
+		fmt.Printf("\n")
+		fmt.Printf("Verify policies:\n")
+		fmt.Printf("  kubectl get clusterpolicies\n")
+		fmt.Printf("  kubectl describe clusterpolicy <policy-name>\n")
+		fmt.Printf("\n")
+	}
+}
+
+// savePolicies saves generated policies to a YAML file.
+func savePolicies(policies []runtime.Object, filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := yaml.NewEncoder(file)
+	defer encoder.Close()
+
+	for _, policy := range policies {
+		if err := encoder.Encode(policy); err != nil {
+			return err
+		}
+		// Add YAML document separator
+		fmt.Fprintln(file, "---")
+	}
+
+	return nil
 }
