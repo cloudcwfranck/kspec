@@ -20,8 +20,11 @@ import (
 )
 
 var (
-	// Version is the kspec version (can be overridden by build flags)
-	version = "1.0.0"
+	// Version information (injected by goreleaser at build time)
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+	builtBy = "manual"
 )
 
 func main() {
@@ -47,13 +50,26 @@ enforces security policies, and generates compliance evidence for audits.`,
 }
 
 func newVersionCmd() *cobra.Command {
-	return &cobra.Command{
+	var verbose bool
+
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("kspec v%s\n", version)
+			if verbose {
+				fmt.Printf("kspec version: %s\n", version)
+				fmt.Printf("commit: %s\n", commit)
+				fmt.Printf("built: %s\n", date)
+				fmt.Printf("built by: %s\n", builtBy)
+			} else {
+				fmt.Printf("kspec %s\n", version)
+			}
 		},
 	}
+
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed version information")
+
+	return cmd
 }
 
 func newValidateCmd() *cobra.Command {

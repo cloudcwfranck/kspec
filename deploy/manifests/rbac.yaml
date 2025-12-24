@@ -1,0 +1,129 @@
+# ServiceAccount for kspec
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kspec
+  namespace: kspec-system
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/component: rbac
+
+---
+# ClusterRole for kspec - read-only access for scanning
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kspec-scanner
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/component: rbac
+rules:
+  # Read cluster version and nodes
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+
+  # Read namespaces and their labels
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+
+  # Read pods for workload security checks
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+  # Read network policies
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list"]
+
+  # Read RBAC resources
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
+    verbs: ["get", "list"]
+
+  # Read admission webhooks
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    verbs: ["get", "list"]
+
+  # Read deployments and pods for observability checks
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+
+  # Read ConfigMaps for audit logging checks
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+
+---
+# ClusterRole for kspec enforcer - write access for policy deployment
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kspec-enforcer
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/component: rbac
+rules:
+  # All scanner permissions
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "pods", "configmaps"]
+    verbs: ["get", "list"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
+    verbs: ["get", "list"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+
+  # Write Kyverno policies
+  - apiGroups: ["kyverno.io"]
+    resources: ["clusterpolicies", "policies"]
+    verbs: ["get", "list", "create", "update", "patch"]
+
+---
+# ClusterRoleBinding for scanner (read-only)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kspec-scanner
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kspec-scanner
+subjects:
+  - kind: ServiceAccount
+    name: kspec
+    namespace: kspec-system
+
+---
+# ClusterRoleBinding for enforcer (read-write)
+# IMPORTANT: Only bind this role when actually enforcing policies
+# For read-only scanning, use kspec-scanner role only
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kspec-enforcer
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kspec-enforcer
+subjects:
+  - kind: ServiceAccount
+    name: kspec
+    namespace: kspec-system
