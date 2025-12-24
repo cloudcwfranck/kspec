@@ -65,12 +65,18 @@ func (e *Enforcer) Enforce(ctx context.Context, clusterSpec *spec.ClusterSpecifi
 	}
 
 	result.KyvernoInstalled = installed
+	fmt.Printf("DEBUG: Kyverno installed check: %v\n", installed)
 
 	if installed {
 		version, err := e.kyvernoInstaller.GetVersion(ctx, e.client)
 		if err == nil {
 			result.KyvernoVersion = version
+			fmt.Printf("DEBUG: Kyverno version: %s\n", version)
+		} else {
+			fmt.Printf("DEBUG: Failed to get Kyverno version: %v\n", err)
 		}
+	} else {
+		fmt.Printf("DEBUG: Kyverno not detected as installed\n")
 	}
 
 	// Generate policies
@@ -89,17 +95,22 @@ func (e *Enforcer) Enforce(ctx context.Context, clusterSpec *spec.ClusterSpecifi
 
 	// If dry-run, stop here
 	if opts.DryRun {
+		fmt.Printf("DEBUG: Dry-run mode, skipping policy deployment\n")
 		return result, nil
 	}
 
+	fmt.Printf("DEBUG: Not dry-run, proceeding with deployment. Installed=%v, SkipInstall=%v\n", installed, opts.SkipInstall)
+
 	// Check if Kyverno is installed before applying
 	if !installed && !opts.SkipInstall {
+		fmt.Printf("DEBUG: Kyverno not installed and skip-install not set, returning error\n")
 		return result, fmt.Errorf("Kyverno is not installed. Install it first or use --skip-install flag.\n\n%s",
 			e.kyvernoInstaller.GetInstallInstructions())
 	}
 
 	// Apply policies (if not dry-run and Kyverno is installed)
 	if installed {
+		fmt.Printf("DEBUG: Calling applyPolicies with %d policies\n", len(policies))
 		applied, applyErrors := e.applyPolicies(ctx, policies)
 		result.PoliciesApplied = applied
 		result.Errors = applyErrors
@@ -108,6 +119,9 @@ func (e *Enforcer) Enforce(ctx context.Context, clusterSpec *spec.ClusterSpecifi
 		if len(applyErrors) > 0 {
 			return nil, fmt.Errorf("failed to apply %d policies: %v", len(applyErrors), applyErrors)
 		}
+		fmt.Printf("DEBUG: Successfully applied all policies\n")
+	} else {
+		fmt.Printf("DEBUG: Kyverno not installed, skipping policy application\n")
 	}
 
 	return result, nil
