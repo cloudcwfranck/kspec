@@ -162,10 +162,30 @@ jobs:
           # Use server-side apply to handle large CRD annotations
           kubectl apply --server-side=true -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
 
-          # Wait for Kyverno to be ready (max 5 minutes)
-          echo "Waiting for Kyverno deployment..."
+          # Wait for Kyverno deployments to be ready (max 5 minutes)
+          echo "Waiting for Kyverno deployments..."
           kubectl wait --for=condition=available --timeout=300s \
-            deployment/kyverno-admission-controller -n kyverno || true
+            deployment/kyverno-admission-controller -n kyverno
+
+          kubectl wait --for=condition=available --timeout=300s \
+            deployment/kyverno-background-controller -n kyverno
+
+          kubectl wait --for=condition=available --timeout=300s \
+            deployment/kyverno-cleanup-controller -n kyverno
+
+          kubectl wait --for=condition=available --timeout=300s \
+            deployment/kyverno-reports-controller -n kyverno
+
+          # Wait for webhook to be ready
+          echo "Waiting for Kyverno webhook..."
+          for i in {1..30}; do
+            if kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg 2>/dev/null; then
+              echo "Webhook is ready"
+              break
+            fi
+            echo "Waiting for webhook... ($i/30)"
+            sleep 2
+          done
 
           # Verify Kyverno is running
           kubectl get deployments -n kyverno
@@ -182,6 +202,14 @@ jobs:
         run: |
           echo "Deploying policies to cluster..."
           ./kspec enforce --spec specs/examples/comprehensive.yaml
+
+          # Wait for policies to be ready
+          echo "Waiting for policies to be ready..."
+          sleep 5
+
+          # Verify policies are in ready state
+          kubectl get clusterpolicies
+
           echo "[PASS] Policy enforcement completed"
 
       - name: Verify policies were created
@@ -226,8 +254,17 @@ jobs:
         run: |
           echo "Testing that policies actually block violations..."
 
+          # Wait a bit more for policies to propagate to webhook
+          echo "Allowing policies to propagate to webhook..."
+          sleep 10
+
+          # Check policy status
+          echo "Policy status:"
+          kubectl get clusterpolicy disallow-privileged-containers -o yaml | grep -A 5 "status:" || echo "No status yet"
+
           # Try to create a privileged pod (should be blocked)
-          cat <<EOF | kubectl apply -f - 2>&1 | tee policy-test.log
+          echo "Attempting to create privileged pod..."
+          if cat <<EOF | kubectl apply -f - 2>&1 | tee policy-test.log; then
           apiVersion: v1
           kind: Pod
           metadata:
@@ -240,17 +277,29 @@ jobs:
               securityContext:
                 privileged: true
           EOF
+            POD_CREATED=true
+          else
+            POD_CREATED=false
+          fi
+
+          # Display the log
+          echo "Policy test output:"
+          cat policy-test.log
 
           # Check if the pod was blocked
           if kubectl get pod privileged-pod-test -n default 2>/dev/null; then
             echo "[FAIL] Privileged pod was NOT blocked by Kyverno policy"
+            kubectl describe pod privileged-pod-test -n default || true
+            kubectl delete pod privileged-pod-test -n default || true
             exit 1
           fi
 
-          if grep -q "blocked\|denied\|violated" policy-test.log; then
+          # Verify it was blocked by policy
+          if grep -qi "blocked\|denied\|violated\|forbidden\|admission webhook" policy-test.log; then
             echo "[PASS] Policy correctly blocked privileged pod"
           else
-            echo "[WARN] Pod creation failed but unclear if due to policy"
+            echo "[WARN] Pod was not created, but unclear if due to policy enforcement"
+            echo "[WARN] This is acceptable - pod creation failed as expected"
           fi
 
       - name: Test policy export to file
