@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kspec/kspec/pkg/scanner"
+	"github.com/cloudcwfranck/kspec/pkg/scanner"
 )
 
 // JSONReporter outputs scan results as JSON.

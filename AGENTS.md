@@ -721,7 +721,7 @@ func GeneratePolicies(spec *Specification) ([]*kyvernov1.ClusterPolicy, error) {
 brew install kspec/tap/kspec
 
 # Linux (amd64)
-curl -sL https://github.com/kspec/kspec/releases/latest/download/kspec-linux-amd64 -o kspec
+curl -sL https://github.com/cloudcwfranck/kspec/releases/latest/download/kspec-linux-amd64 -o kspec
 chmod +x kspec
 sudo mv kspec /usr/local/bin/
 
@@ -729,7 +729,7 @@ sudo mv kspec /usr/local/bin/
 scoop install kspec
 
 # From source
-go install github.com/kspec/kspec/cmd/kspec@latest
+go install github.com/cloudcwfranck/kspec/cmd/kspec@latest
 ```
 
 ### 5.2 Quickstart Workflow

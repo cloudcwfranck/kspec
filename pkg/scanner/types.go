@@ -4,7 +4,7 @@ package scanner
 import (
 	"context"
 
-	"github.com/kspec/kspec/pkg/spec"
+	"github.com/cloudcwfranck/kspec/pkg/spec"
 	"k8s.io/client-go/kubernetes"
 )
 

@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/kspec/kspec/pkg/scanner"
-	"github.com/kspec/kspec/pkg/spec"
+	"github.com/cloudcwfranck/kspec/pkg/scanner"
+	"github.com/cloudcwfranck/kspec/pkg/spec"
 	"k8s.io/client-go/kubernetes"
 )
 

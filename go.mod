@@ -1,4 +1,4 @@
-module github.com/kspec/kspec
+module github.com/cloudcwfranck/kspec
 
 go 1.24.7
 

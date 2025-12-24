@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kspec/kspec/pkg/spec"
+	"github.com/cloudcwfranck/kspec/pkg/spec"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )

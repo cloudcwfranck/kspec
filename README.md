@@ -33,7 +33,7 @@ kspec is the bridge between compliance frameworks (NIST, CIS) and your Kubernete
 
 ```bash
 # From source (requires Go 1.21+)
-git clone https://github.com/kspec/kspec
+git clone https://github.com/cloudcwfranck/kspec
 cd kspec
 go build -o kspec ./cmd/kspec
 sudo mv kspec /usr/local/bin/
@@ -126,7 +126,7 @@ See `specs/examples/` for ready-to-use templates:
 
 ```bash
 # Clone repository
-git clone https://github.com/kspec/kspec
+git clone https://github.com/cloudcwfranck/kspec
 cd kspec
 
 # Install dependencies
@@ -178,8 +178,8 @@ Apache 2.0 - see [LICENSE](./LICENSE) for details.
 
 ## Support
 
-- **Issues**: https://github.com/kspec/kspec/issues
-- **Discussions**: https://github.com/kspec/kspec/discussions
+- **Issues**: https://github.com/cloudcwfranck/kspec/issues
+- **Discussions**: https://github.com/cloudcwfranck/kspec/discussions
 - **Documentation**: https://kspec.dev (coming soon)
 
 ---
