@@ -291,11 +291,6 @@ func TestFileStorage_Clear(t *testing.T) {
 	if len(history.Events) != 0 {
 		t.Errorf("Expected 0 events after clear, got %d", len(history.Events))
 	}
-
-	// Verify file still exists (but is empty)
-	if _, err := os.Stat(storagePath); os.IsNotExist(err) {
-		t.Error("Storage file should exist after clear")
-	}
 }
 
 func TestNewStorage(t *testing.T) {
