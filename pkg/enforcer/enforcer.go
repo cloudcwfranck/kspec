@@ -184,7 +184,21 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 		if createErr != nil {
 			// If policy exists, update it
 			if strings.Contains(createErr.Error(), "already exists") {
-				fmt.Printf("  Policy exists, updating...\n")
+				fmt.Printf("  Policy exists, fetching current version for update...\n")
+
+				// Get the existing policy to retrieve its resourceVersion
+				existing, getErr := e.dynamicClient.Resource(gvr).Get(ctx, policyName, metav1.GetOptions{})
+				if getErr != nil {
+					errMsg := fmt.Sprintf("[ERROR] '%s': failed to get existing policy: %v", policyName, getErr)
+					fmt.Println(errMsg)
+					errors = append(errors, errMsg)
+					continue
+				}
+
+				// Set the resourceVersion from the existing policy (required for updates)
+				u.SetResourceVersion(existing.GetResourceVersion())
+				fmt.Printf("  Using resourceVersion: %s\n", existing.GetResourceVersion())
+
 				_, updateErr := e.dynamicClient.Resource(gvr).Update(ctx, u, metav1.UpdateOptions{})
 				if updateErr != nil {
 					errMsg := fmt.Sprintf("[ERROR] '%s': update failed: %v", policyName, updateErr)
