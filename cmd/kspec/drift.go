@@ -290,8 +290,8 @@ func runContinuousMonitoring(ctx context.Context, client kubernetes.Interface, d
 	fmt.Printf("Press Ctrl+C to stop\n\n")
 
 	monitor, err := drift.NewMonitor(client, dynamicClient, &drift.MonitorConfig{
-		Interval:     interval,
-		EnabledTypes: []drift.DriftType{drift.DriftTypePolicy, drift.DriftTypeCompliance},
+		Interval:      interval,
+		EnabledTypes:  []drift.DriftType{drift.DriftTypePolicy, drift.DriftTypeCompliance},
 		AutoRemediate: false,
 	})
 	if err != nil {

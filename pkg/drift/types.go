@@ -281,7 +281,7 @@ type MonitorConfig struct {
 	EnabledTypes []DriftType
 
 	// Auto-remediation settings
-	AutoRemediate bool
+	AutoRemediate  bool
 	RemediateTypes []DriftType
 
 	// Alerting configuration

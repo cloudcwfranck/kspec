@@ -209,8 +209,8 @@ func (d *Detector) DetectComplianceDrift(ctx context.Context, clusterSpec *spec.
 				DriftKind: "violation",
 				Message:   result.Message,
 				Remediation: &RemediationResult{
-					Action: "manual-required",
-					Status: DriftStatusManualRequired,
+					Action:  "manual-required",
+					Status:  DriftStatusManualRequired,
 					Details: result.Remediation,
 				},
 			})
