@@ -132,6 +132,9 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 	applied := 0
 	errors := []string{}
 
+	fmt.Printf("\n=== POLICY DEPLOYMENT START ===\n")
+	fmt.Printf("Total policies to deploy: %d\n", len(policies))
+
 	// Define Kyverno ClusterPolicy GVR
 	gvr := schema.GroupVersionResource{
 		Group:    "kyverno.io",
@@ -140,14 +143,25 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 	}
 
 	for i, policyObj := range policies {
+		fmt.Printf("\n[Policy %d/%d]\n", i+1, len(policies))
+
+		// Log the policy type
+		fmt.Printf("  Type: %T\n", policyObj)
+
 		// Convert our typed ClusterPolicy to unstructured for dynamic client
 		unstructuredPolicy, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policyObj)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("policy[%d]: failed to convert to unstructured: %v", i, err))
+			errMsg := fmt.Sprintf("[ERROR] policy[%d]: failed to convert to unstructured: %v", i, err)
+			fmt.Println(errMsg)
+			errors = append(errors, errMsg)
 			continue
 		}
 
 		u := &unstructured.Unstructured{Object: unstructuredPolicy}
+
+		// Check what was converted
+		fmt.Printf("  Converted to unstructured: apiVersion=%s, kind=%s, name=%s\n",
+			u.GetAPIVersion(), u.GetKind(), u.GetName())
 
 		// CRITICAL: Ensure APIVersion and Kind are set (required by dynamic client)
 		u.SetAPIVersion("kyverno.io/v1")
@@ -155,12 +169,14 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 
 		policyName := u.GetName()
 		if policyName == "" {
-			errors = append(errors, fmt.Sprintf("policy[%d]: missing name after conversion", i))
+			errMsg := fmt.Sprintf("[ERROR] policy[%d]: missing name after conversion", i)
+			fmt.Println(errMsg)
+			errors = append(errors, errMsg)
 			continue
 		}
 
 		// Debug: Log what we're trying to create
-		fmt.Printf("DEBUG: Attempting to create ClusterPolicy '%s' (APIVersion=%s, Kind=%s)\n",
+		fmt.Printf("  Creating: name='%s', apiVersion='%s', kind='%s'\n",
 			policyName, u.GetAPIVersion(), u.GetKind())
 
 		// Try to create the policy, or update if it already exists
@@ -168,26 +184,39 @@ func (e *Enforcer) applyPolicies(ctx context.Context, policies []runtime.Object)
 		if createErr != nil {
 			// If policy exists, update it
 			if strings.Contains(createErr.Error(), "already exists") {
-				fmt.Printf("DEBUG: Policy '%s' already exists, updating...\n", policyName)
+				fmt.Printf("  Policy exists, updating...\n")
 				_, updateErr := e.dynamicClient.Resource(gvr).Update(ctx, u, metav1.UpdateOptions{})
 				if updateErr != nil {
-					errors = append(errors, fmt.Sprintf("policy '%s': failed to update: %v", policyName, updateErr))
+					errMsg := fmt.Sprintf("[ERROR] '%s': update failed: %v", policyName, updateErr)
+					fmt.Println(errMsg)
+					errors = append(errors, errMsg)
 					continue
 				}
-				fmt.Printf("DEBUG: Successfully updated policy '%s'\n", policyName)
+				fmt.Printf("  [SUCCESS] Updated '%s'\n", policyName)
 			} else {
-				errors = append(errors, fmt.Sprintf("policy '%s': failed to create: %v", policyName, createErr))
-				fmt.Printf("DEBUG: Failed to create policy '%s': %v\n", policyName, createErr)
+				errMsg := fmt.Sprintf("[ERROR] '%s': creation failed: %v", policyName, createErr)
+				fmt.Println(errMsg)
+				errors = append(errors, errMsg)
 				continue
 			}
 		} else {
-			fmt.Printf("DEBUG: Successfully created policy '%s'\n", policyName)
+			fmt.Printf("  [SUCCESS] Created '%s'\n", policyName)
 		}
 
 		applied++
 	}
 
-	fmt.Printf("DEBUG: Applied %d/%d policies, %d errors\n", applied, len(policies), len(errors))
+	fmt.Printf("\n=== POLICY DEPLOYMENT SUMMARY ===\n")
+	fmt.Printf("Successfully applied: %d/%d\n", applied, len(policies))
+	fmt.Printf("Failed: %d\n", len(errors))
+
+	if len(errors) > 0 {
+		fmt.Printf("\n=== ERRORS ===\n")
+		for _, errMsg := range errors {
+			fmt.Println(errMsg)
+		}
+	}
+	fmt.Printf("=================================\n\n")
 
 	return applied, errors
 }
