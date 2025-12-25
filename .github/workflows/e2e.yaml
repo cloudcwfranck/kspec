@@ -176,16 +176,27 @@ jobs:
           kubectl wait --for=condition=available --timeout=300s \
             deployment/kyverno-reports-controller -n kyverno
 
-          # Wait for webhook to be ready
-          echo "Waiting for Kyverno webhook..."
+          # Wait for webhook configurations to be created
+          echo "Waiting for Kyverno webhook configurations..."
           for i in {1..30}; do
-            if kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg 2>/dev/null; then
-              echo "Webhook is ready"
+            VALIDATING=$(kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg 2>/dev/null && echo "ok" || echo "missing")
+            MUTATING=$(kubectl get mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg 2>/dev/null && echo "ok" || echo "missing")
+
+            if [ "$VALIDATING" = "ok" ] && [ "$MUTATING" = "ok" ]; then
+              echo "Both webhook configurations exist"
               break
             fi
-            echo "Waiting for webhook... ($i/30)"
+            echo "Waiting for webhooks... (validating: $VALIDATING, mutating: $MUTATING) ($i/30)"
             sleep 2
           done
+
+          # Wait for Kyverno service to have ready endpoints
+          echo "Waiting for Kyverno service endpoints to be ready..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kyverno -n kyverno --timeout=120s
+
+          # Additional grace period for webhook service to fully initialize
+          echo "Waiting additional 15 seconds for webhook service to stabilize..."
+          sleep 15
 
           # Verify Kyverno is running
           kubectl get deployments -n kyverno
