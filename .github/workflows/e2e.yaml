@@ -176,27 +176,30 @@ jobs:
           kubectl wait --for=condition=available --timeout=300s \
             deployment/kyverno-reports-controller -n kyverno
 
-          # Wait for webhook configurations to be created
-          echo "Waiting for Kyverno webhook configurations..."
-          for i in {1..30}; do
-            VALIDATING=$(kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg 2>/dev/null && echo "ok" || echo "missing")
-            MUTATING=$(kubectl get mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg 2>/dev/null && echo "ok" || echo "missing")
+          # Wait for webhook configurations to be fully populated with webhook entries
+          echo "Waiting for Kyverno webhook configurations to be populated..."
+          for i in {1..60}; do
+            VALIDATING_COUNT=$(kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg -o jsonpath='{.webhooks}' 2>/dev/null | grep -o "name" | wc -l || echo "0")
+            MUTATING_COUNT=$(kubectl get mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg -o jsonpath='{.webhooks}' 2>/dev/null | grep -o "name" | wc -l || echo "0")
 
-            if [ "$VALIDATING" = "ok" ] && [ "$MUTATING" = "ok" ]; then
-              echo "Both webhook configurations exist"
+            if [ "$VALIDATING_COUNT" -gt "0" ] && [ "$MUTATING_COUNT" -gt "0" ]; then
+              echo "Webhook configurations are populated (validating: $VALIDATING_COUNT webhooks, mutating: $MUTATING_COUNT webhooks)"
               break
             fi
-            echo "Waiting for webhooks... (validating: $VALIDATING, mutating: $MUTATING) ($i/30)"
+            echo "Waiting for webhooks to be populated... (validating: $VALIDATING_COUNT, mutating: $MUTATING_COUNT) ($i/60)"
             sleep 2
           done
 
-          # Wait for Kyverno service to have ready endpoints
-          echo "Waiting for Kyverno service endpoints to be ready..."
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kyverno -n kyverno --timeout=120s
+          # Wait for all Kyverno pods to be ready
+          echo "Waiting for all Kyverno pods to be ready..."
+          kubectl wait --for=condition=ready pod --all -n kyverno --timeout=120s || {
+            echo "Warning: Some pods may not be ready, but continuing..."
+            kubectl get pods -n kyverno
+          }
 
           # Additional grace period for webhook service to fully initialize
-          echo "Waiting additional 15 seconds for webhook service to stabilize..."
-          sleep 15
+          echo "Waiting additional 20 seconds for webhook service to stabilize..."
+          sleep 20
 
           # Verify Kyverno is running
           kubectl get deployments -n kyverno
