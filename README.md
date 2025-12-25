@@ -31,8 +31,38 @@ kspec is the bridge between compliance frameworks (NIST, CIS) and your Kubernete
 
 ### Installation
 
+#### Binary Releases (Recommended)
+
+Download pre-built binaries from the [latest release](https://github.com/cloudcwfranck/kspec/releases/latest):
+
+**Linux (x86_64)**
 ```bash
-# From source (requires Go 1.21+)
+curl -L https://github.com/cloudcwfranck/kspec/releases/latest/download/kspec_0.1.0_Linux_amd64.tar.gz | tar xz
+sudo mv kspec /usr/local/bin/
+kspec version
+```
+
+**macOS (Apple Silicon)**
+```bash
+curl -L https://github.com/cloudcwfranck/kspec/releases/latest/download/kspec_0.1.0_Darwin_arm64.tar.gz | tar xz
+sudo mv kspec /usr/local/bin/
+kspec version
+```
+
+**macOS (Intel)**
+```bash
+curl -L https://github.com/cloudcwfranck/kspec/releases/latest/download/kspec_0.1.0_Darwin_amd64.tar.gz | tar xz
+sudo mv kspec /usr/local/bin/
+kspec version
+```
+
+**Windows**
+Download the `.zip` file from the [releases page](https://github.com/cloudcwfranck/kspec/releases/latest) and extract `kspec.exe` to a directory in your PATH.
+
+#### From Source
+
+```bash
+# Requires Go 1.21+
 git clone https://github.com/cloudcwfranck/kspec
 cd kspec
 go build -o kspec ./cmd/kspec
