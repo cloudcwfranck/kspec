@@ -181,6 +181,84 @@ kubectl run test --image=nginx --privileged=true
 #   check-privileged: 'validation error: Privileged containers are not allowed'
 ```
 
+5. **Drift Detection (monitor for configuration changes)**
+
+kspec can detect when your cluster state drifts from your specification and automatically remediate it. This provides **continuous compliance** - ensuring your cluster stays in the desired state over time.
+
+**Drift Detection Workflow:**
+
+```bash
+# 1. Detect drift once
+kspec drift detect --spec cluster-spec.yaml
+
+# 2. Watch for drift continuously (check every 5 minutes)
+kspec drift detect --spec cluster-spec.yaml --watch --watch-interval=5m
+
+# 3. Output drift report to file
+kspec drift detect --spec cluster-spec.yaml --output json > drift-report.json
+
+# 4. Remediate detected drift (dry-run first to preview)
+kspec drift remediate --spec cluster-spec.yaml --dry-run
+
+# 5. Apply remediation
+kspec drift remediate --spec cluster-spec.yaml
+
+# 6. View drift history
+kspec drift history --spec cluster-spec.yaml --since=24h
+```
+
+**What gets detected:**
+
+kspec detects three types of drift:
+
+| Drift Type | Description | Remediation |
+|------------|-------------|-------------|
+| **Missing Policies** | Policies in spec but not in cluster | Automatically created |
+| **Modified Policies** | Policies changed from spec | Automatically updated |
+| **Extra Policies** | Policies in cluster but not in spec | Reported (delete with --force) |
+| **Compliance Violations** | New failures in compliance checks | Manual remediation required |
+
+**Drift Detection Output:**
+
+```
+┌─────────────────────────────────────────┐
+│ kspec vdev — Drift Detection          │
+└─────────────────────────────────────────┘
+
+[DRIFT] Detected 3 drift events
+Severity: high
+
+Policy Drift: 2
+Compliance Drift: 1
+
+Drift Events:
+─────────────
+[high] ClusterPolicy/require-run-as-non-root: ClusterPolicy 'require-run-as-non-root' is missing from cluster
+[medium] ClusterPolicy/disallow-host-namespaces: ClusterPolicy 'disallow-host-namespaces' has been modified
+[high] Check/kubernetes-version: Check failed
+```
+
+**Automatic Remediation Output:**
+
+```
+┌─────────────────────────────────────────┐
+│ kspec vdev — Drift Remediation        │
+└─────────────────────────────────────────┘
+
+Remediation Summary:
+───────────────────
+Total events: 3
+Remediated: 2
+Failed: 0
+Manual required: 1
+
+Remediated:
+  [OK] ClusterPolicy/require-run-as-non-root: Created missing policy
+  [OK] ClusterPolicy/disallow-host-namespaces: Updated policy to match spec
+
+[OK] Remediation complete
+```
+
 ## Example Specifications
 
 See `specs/examples/` for ready-to-use templates:
@@ -230,10 +308,22 @@ See `specs/examples/` for ready-to-use templates:
 - **Comprehensive e2e tests** - Full test coverage including webhook readiness, policy creation, idempotency, and blocking behavior
 - **Supported policies**: runAsNonRoot, privilege escalation, privileged containers, host namespaces, resource limits, image digests, registry blocks
 
+✅ **Phase 6: Drift Detection**
+- **`kspec drift detect` command** - Detect configuration drift between specification and cluster state
+- **`kspec drift remediate` command** - Automatic remediation of detected drift
+- **`kspec drift history` command** - View historical drift events and statistics
+- **Policy drift detection** - Missing, modified, and extra Kyverno policies
+- **Compliance drift detection** - New failures in compliance checks
+- **Automatic remediation** - Create missing policies, update modified policies
+- **Continuous monitoring** - Watch mode with configurable polling intervals
+- **Drift storage** - In-memory and file-based storage for drift history
+- **Conservative remediation** - Extra policies reported only (delete with --force)
+- **Severity levels** - Critical, High, Medium, Low drift classification
+
 📅 **Roadmap (Future Phases)**
-- Phase 6: Drift detection & remediation automation
 - Additional policy types: Network policies, RBAC policies
 - Multi-cluster policy deployment
+- CronJob deployment for automated drift monitoring
 - Policy testing framework
 - Additional checks: Image vulnerability scanning, secret management validation
 
@@ -301,4 +391,4 @@ Apache 2.0 - see [LICENSE](./LICENSE) for details.
 
 ---
 
-**Status**: Phase 5 complete - Policy enforcement with Kyverno implemented. Detection + Prevention complete! See [AGENTS.md](./AGENTS.md) for full implementation roadmap.
+**Status**: Phase 6 complete - Drift detection and automatic remediation implemented. Detection + Prevention + Drift Monitoring complete! See [AGENTS.md](./AGENTS.md) for full implementation roadmap.

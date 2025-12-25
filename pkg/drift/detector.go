@@ -1,0 +1,400 @@
+package drift
+
+import (
+	"context"
+	"fmt"
+	"reflect"
+	"time"
+
+	"github.com/cloudcwfranck/kspec/pkg/enforcer"
+	"github.com/cloudcwfranck/kspec/pkg/scanner"
+	"github.com/cloudcwfranck/kspec/pkg/scanner/checks"
+	"github.com/cloudcwfranck/kspec/pkg/spec"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+)
+
+// Detector detects drift between desired state and actual state.
+type Detector struct {
+	client        kubernetes.Interface
+	dynamicClient dynamic.Interface
+	enforcer      *enforcer.Enforcer
+	scanner       *scanner.Scanner
+}
+
+// NewDetector creates a new drift detector.
+func NewDetector(client kubernetes.Interface, dynamicClient dynamic.Interface) *Detector {
+	// Create scanner with all checks
+	checkList := []scanner.Check{
+		&checks.KubernetesVersionCheck{},
+		&checks.PodSecurityStandardsCheck{},
+		&checks.NetworkPolicyCheck{},
+		&checks.WorkloadSecurityCheck{},
+		&checks.RBACCheck{},
+		&checks.AdmissionCheck{},
+		&checks.ObservabilityCheck{},
+	}
+
+	return &Detector{
+		client:        client,
+		dynamicClient: dynamicClient,
+		enforcer:      enforcer.NewEnforcer(client, dynamicClient),
+		scanner:       scanner.NewScanner(client, checkList),
+	}
+}
+
+// Detect detects all configured drift types.
+func (d *Detector) Detect(ctx context.Context, clusterSpec *spec.ClusterSpecification, opts DetectOptions) (*DriftReport, error) {
+	report := &DriftReport{
+		Timestamp: time.Now(),
+		Spec: SpecInfo{
+			Name:    clusterSpec.Metadata.Name,
+			Version: clusterSpec.Metadata.Version,
+		},
+		Events: []DriftEvent{},
+		Drift: DriftSummary{
+			Detected: false,
+			Types:    []DriftType{},
+			Counts:   DriftCounts{},
+		},
+	}
+
+	// Detect policy drift if enabled
+	if d.isTypeEnabled(DriftTypePolicy, opts.EnabledTypes) {
+		policyEvents, err := d.DetectPolicyDrift(ctx, clusterSpec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect policy drift: %w", err)
+		}
+		report.Events = append(report.Events, policyEvents...)
+	}
+
+	// Detect compliance drift if enabled
+	if d.isTypeEnabled(DriftTypeCompliance, opts.EnabledTypes) {
+		complianceEvents, err := d.DetectComplianceDrift(ctx, clusterSpec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect compliance drift: %w", err)
+		}
+		report.Events = append(report.Events, complianceEvents...)
+	}
+
+	// Update summary
+	d.updateSummary(report)
+
+	return report, nil
+}
+
+// DetectPolicyDrift detects drift in Kyverno policies.
+func (d *Detector) DetectPolicyDrift(ctx context.Context, clusterSpec *spec.ClusterSpecification) ([]DriftEvent, error) {
+	events := []DriftEvent{}
+
+	// Generate expected policies from spec
+	result, err := d.enforcer.Enforce(ctx, clusterSpec, enforcer.EnforceOptions{
+		DryRun:      true,
+		SkipInstall: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate expected policies: %w", err)
+	}
+
+	expectedPolicies := result.Policies
+
+	// Get actual policies from cluster
+	actualPolicies, err := d.getClusterPolicies(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster policies: %w", err)
+	}
+
+	// Build maps for comparison
+	expectedMap := d.buildPolicyMap(expectedPolicies)
+	actualMap := d.buildPolicyMap(actualPolicies)
+
+	// Detect missing policies (in expected but not in actual)
+	for name, expectedPolicy := range expectedMap {
+		if _, exists := actualMap[name]; !exists {
+			events = append(events, DriftEvent{
+				Timestamp: time.Now(),
+				Type:      DriftTypePolicy,
+				Severity:  SeverityHigh,
+				Resource: DriftResource{
+					Kind: "ClusterPolicy",
+					Name: name,
+					Path: fmt.Sprintf("ClusterPolicy/%s", name),
+				},
+				DriftKind: "missing",
+				Expected:  expectedPolicy,
+				Actual:    nil,
+				Message:   fmt.Sprintf("ClusterPolicy '%s' is missing from cluster", name),
+			})
+		}
+	}
+
+	// Detect modified policies (exists but different)
+	for name, expectedPolicy := range expectedMap {
+		if actualPolicy, exists := actualMap[name]; exists {
+			if diff := d.comparePolicies(expectedPolicy, actualPolicy); diff != nil {
+				events = append(events, DriftEvent{
+					Timestamp: time.Now(),
+					Type:      DriftTypePolicy,
+					Severity:  SeverityMedium,
+					Resource: DriftResource{
+						Kind: "ClusterPolicy",
+						Name: name,
+						Path: fmt.Sprintf("ClusterPolicy/%s", name),
+					},
+					DriftKind: "modified",
+					Expected:  expectedPolicy,
+					Actual:    actualPolicy,
+					Diff:      diff,
+					Message:   fmt.Sprintf("ClusterPolicy '%s' has been modified", name),
+				})
+			}
+		}
+	}
+
+	// Detect extra policies (in actual but not in expected)
+	// Only report if they have our annotation
+	for name, actualPolicy := range actualMap {
+		if _, exists := expectedMap[name]; !exists {
+			// Check if this policy was generated by kspec
+			if d.isKspecGenerated(actualPolicy) {
+				events = append(events, DriftEvent{
+					Timestamp: time.Now(),
+					Type:      DriftTypePolicy,
+					Severity:  SeverityLow,
+					Resource: DriftResource{
+						Kind: "ClusterPolicy",
+						Name: name,
+						Path: fmt.Sprintf("ClusterPolicy/%s", name),
+					},
+					DriftKind: "extra",
+					Expected:  nil,
+					Actual:    actualPolicy,
+					Message:   fmt.Sprintf("ClusterPolicy '%s' exists but is not in spec", name),
+				})
+			}
+		}
+	}
+
+	return events, nil
+}
+
+// DetectComplianceDrift detects drift in compliance status.
+func (d *Detector) DetectComplianceDrift(ctx context.Context, clusterSpec *spec.ClusterSpecification) ([]DriftEvent, error) {
+	events := []DriftEvent{}
+
+	// Run compliance scan
+	scanResult, err := d.scanner.Scan(ctx, clusterSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan cluster: %w", err)
+	}
+
+	// Detect failed checks (these are compliance drift)
+	for _, result := range scanResult.Results {
+		if result.Status == scanner.StatusFail {
+			severity := d.getSeverityFromCheckSeverity(result.Severity)
+
+			events = append(events, DriftEvent{
+				Timestamp: time.Now(),
+				Type:      DriftTypeCompliance,
+				Severity:  severity,
+				Resource: DriftResource{
+					Kind: "ComplianceCheck",
+					Name: result.Name,
+					Path: fmt.Sprintf("Check/%s", result.Name),
+				},
+				DriftKind: "violation",
+				Message:   result.Message,
+				Remediation: &RemediationResult{
+					Action: "manual-required",
+					Status: DriftStatusManualRequired,
+					Details: result.Remediation,
+				},
+			})
+		}
+	}
+
+	return events, nil
+}
+
+// getClusterPolicies retrieves all ClusterPolicies from the cluster.
+func (d *Detector) getClusterPolicies(ctx context.Context) ([]runtime.Object, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    "kyverno.io",
+		Version:  "v1",
+		Resource: "clusterpolicies",
+	}
+
+	list, err := d.dynamicClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	policies := make([]runtime.Object, len(list.Items))
+	for i := range list.Items {
+		policies[i] = &list.Items[i]
+	}
+
+	return policies, nil
+}
+
+// buildPolicyMap builds a map of policy name -> policy object.
+func (d *Detector) buildPolicyMap(policies []runtime.Object) map[string]runtime.Object {
+	policyMap := make(map[string]runtime.Object)
+	for _, policy := range policies {
+		if u, ok := policy.(*unstructured.Unstructured); ok {
+			name := u.GetName()
+			policyMap[name] = policy
+		} else if obj, ok := policy.(interface{ GetName() string }); ok {
+			name := obj.GetName()
+			policyMap[name] = policy
+		}
+	}
+	return policyMap
+}
+
+// comparePolicies compares two policies and returns differences.
+func (d *Detector) comparePolicies(expected, actual runtime.Object) *DriftDiff {
+	// Convert both to unstructured for comparison
+	expectedUnstructured, err1 := runtime.DefaultUnstructuredConverter.ToUnstructured(expected)
+	actualUnstructured, err2 := runtime.DefaultUnstructuredConverter.ToUnstructured(actual)
+
+	if err1 != nil || err2 != nil {
+		return &DriftDiff{} // Return empty diff if conversion fails
+	}
+
+	// Remove metadata fields that change (resourceVersion, generation, etc.)
+	d.removeVolatileFields(expectedUnstructured)
+	d.removeVolatileFields(actualUnstructured)
+
+	// Get spec from both
+	expectedSpec, expectedHasSpec := expectedUnstructured["spec"]
+	actualSpec, actualHasSpec := actualUnstructured["spec"]
+
+	if !expectedHasSpec || !actualHasSpec {
+		return nil // No spec to compare
+	}
+
+	// Deep compare specs
+	if reflect.DeepEqual(expectedSpec, actualSpec) {
+		return nil // No drift
+	}
+
+	// There's drift - create detailed diff
+	diff := &DriftDiff{
+		Added:    make(map[string]interface{}),
+		Removed:  make(map[string]interface{}),
+		Modified: make(map[string]DriftModification),
+	}
+
+	// For now, just mark spec as modified
+	// In a full implementation, we'd recursively compare the spec structure
+	diff.Modified["spec"] = DriftModification{
+		OldValue: expectedSpec,
+		NewValue: actualSpec,
+	}
+
+	return diff
+}
+
+// removeVolatileFields removes fields that change frequently and aren't drift.
+func (d *Detector) removeVolatileFields(obj map[string]interface{}) {
+	if metadata, ok := obj["metadata"].(map[string]interface{}); ok {
+		delete(metadata, "resourceVersion")
+		delete(metadata, "generation")
+		delete(metadata, "uid")
+		delete(metadata, "creationTimestamp")
+		delete(metadata, "managedFields")
+		delete(metadata, "selfLink")
+	}
+	delete(obj, "status")
+}
+
+// isKspecGenerated checks if a policy was generated by kspec.
+func (d *Detector) isKspecGenerated(policy runtime.Object) bool {
+	if u, ok := policy.(*unstructured.Unstructured); ok {
+		annotations := u.GetAnnotations()
+		if annotations != nil {
+			_, hasAnnotation := annotations["kspec.dev/generated"]
+			return hasAnnotation
+		}
+	}
+	return false
+}
+
+// isTypeEnabled checks if a drift type is enabled.
+func (d *Detector) isTypeEnabled(driftType DriftType, enabledTypes []DriftType) bool {
+	if len(enabledTypes) == 0 {
+		return true // All types enabled by default
+	}
+	for _, t := range enabledTypes {
+		if t == driftType {
+			return true
+		}
+	}
+	return false
+}
+
+// updateSummary updates the drift report summary.
+func (d *Detector) updateSummary(report *DriftReport) {
+	report.Drift.Counts.Total = len(report.Events)
+	report.Drift.Detected = len(report.Events) > 0
+
+	seenTypes := make(map[DriftType]bool)
+	highestSeverity := SeverityLow
+
+	for _, event := range report.Events {
+		// Count by type
+		switch event.Type {
+		case DriftTypePolicy:
+			report.Drift.Counts.Policies++
+		case DriftTypeCompliance:
+			report.Drift.Counts.Compliance++
+		case DriftTypeConfiguration:
+			report.Drift.Counts.Configuration++
+		}
+
+		// Track unique types
+		if !seenTypes[event.Type] {
+			report.Drift.Types = append(report.Drift.Types, event.Type)
+			seenTypes[event.Type] = true
+		}
+
+		// Track highest severity
+		if d.isSeverityHigher(event.Severity, highestSeverity) {
+			highestSeverity = event.Severity
+		}
+	}
+
+	report.Drift.Severity = highestSeverity
+}
+
+// getSeverityFromCheckSeverity converts scanner severity to drift severity.
+func (d *Detector) getSeverityFromCheckSeverity(checkSeverity scanner.Severity) DriftSeverity {
+	switch checkSeverity {
+	case scanner.SeverityCritical:
+		return SeverityCritical
+	case scanner.SeverityHigh:
+		return SeverityHigh
+	case scanner.SeverityMedium:
+		return SeverityMedium
+	case scanner.SeverityLow:
+		return SeverityLow
+	default:
+		return SeverityMedium
+	}
+}
+
+// isSeverityHigher returns true if sev1 is higher than sev2.
+func (d *Detector) isSeverityHigher(sev1, sev2 DriftSeverity) bool {
+	levels := map[DriftSeverity]int{
+		SeverityLow:      1,
+		SeverityMedium:   2,
+		SeverityHigh:     3,
+		SeverityCritical: 4,
+	}
+	return levels[sev1] > levels[sev2]
+}
