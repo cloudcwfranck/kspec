@@ -155,13 +155,13 @@ jobs:
       - name: Detect drift
         run: |
           echo "Running drift detection..."
-          ./kspec drift detect --spec test-spec.yaml --output json > drift-report.json
+          ./kspec drift detect --spec test-spec.yaml --output json > drift-report.json || true
 
           echo "Drift report:"
           cat drift-report.json | jq '.'
 
           # Verify drift was detected
-          DRIFT_COUNT=$(cat drift-report.json | jq -r '.drift.summary.total')
+          DRIFT_COUNT=$(cat drift-report.json | jq -r '.drift.counts.total')
           echo "Drift events detected: $DRIFT_COUNT"
 
           if [ "$DRIFT_COUNT" -gt 0 ]; then
@@ -214,12 +214,12 @@ jobs:
           kubectl get clusterpolicies
 
           # Re-run drift detection
-          ./kspec drift detect --spec test-spec.yaml --output json > post-remediation-drift.json
+          ./kspec drift detect --spec test-spec.yaml --output json > post-remediation-drift.json || true
 
           echo "Post-remediation drift report:"
           cat post-remediation-drift.json | jq '.'
 
-          DRIFT_COUNT=$(cat post-remediation-drift.json | jq -r '.drift.summary.total')
+          DRIFT_COUNT=$(cat post-remediation-drift.json | jq -r '.drift.counts.total')
           echo "Remaining drift events: $DRIFT_COUNT"
 
           if [ "$DRIFT_COUNT" -eq 0 ]; then
@@ -246,7 +246,7 @@ jobs:
           echo "Policy modified"
 
           # Detect drift
-          ./kspec drift detect --spec test-spec.yaml --output json > modified-drift.json
+          ./kspec drift detect --spec test-spec.yaml --output json > modified-drift.json || true
 
           echo "Drift report after modification:"
           cat modified-drift.json | jq '.'
