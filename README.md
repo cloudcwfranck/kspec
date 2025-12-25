@@ -102,42 +102,83 @@ COMPLIANCE: 1/1 checks passed (100%)
 
 4. **Enforce policies (prevent future violations)**
 
+kspec can automatically generate and deploy Kyverno ClusterPolicy resources from your specification. This enables **proactive enforcement** - blocking non-compliant workloads before they're created.
+
+**Prerequisites:**
+- [Kyverno](https://kyverno.io) v1.11+ installed in your cluster
+- Required cluster permissions to create ClusterPolicy resources
+
+**Install Kyverno:**
 ```bash
-# Generate policies (dry-run, see what would be created)
+kubectl create namespace kyverno
+kubectl apply -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
+```
+
+**Policy Enforcement Workflow:**
+
+```bash
+# 1. Preview policies (dry-run, see what would be created)
 kspec enforce --spec cluster-spec.yaml --dry-run
 
-# Save generated policies to file
+# 2. Save generated policies to file for review
 kspec enforce --spec cluster-spec.yaml --dry-run --output policies.yaml
 
-# Deploy policies to cluster (requires Kyverno installed)
+# 3. Deploy policies to cluster (requires Kyverno installed)
+kspec enforce --spec cluster-spec.yaml
+
+# 4. Re-run to update policies (idempotent)
 kspec enforce --spec cluster-spec.yaml
 ```
+
+**What gets enforced:**
+
+Based on your `spec.workloads` and `spec.workloads.images` configuration, kspec generates:
+
+| Policy | Generated When | Blocks |
+|--------|----------------|--------|
+| `require-run-as-non-root` | `securityContext.runAsNonRoot: true` required | Pods without runAsNonRoot=true |
+| `disallow-privilege-escalation` | `allowPrivilegeEscalation: false` required | Containers with allowPrivilegeEscalation=true |
+| `disallow-privileged-containers` | `privileged: true` forbidden | Privileged containers |
+| `disallow-host-namespaces` | `hostNetwork/hostPID/hostIPC: true` forbidden | Pods using host namespaces |
+| `require-resource-limits` | Resource limits required | Containers without CPU/memory limits |
+| `require-image-digests` | `requireDigests: true` | Images using tags instead of digests |
+| `block-image-registries` | `blockedRegistries` specified | Images from blocked registries |
 
 **Enforcement Output:**
 ```
 ┌─────────────────────────────────────────┐
-│ kspec v1.0.0 — Policy Enforcement       │
+│ kspec vdev — Policy Enforcement       │
 └─────────────────────────────────────────┘
 
-✅ Kyverno Status: Installed
-   Version: ghcr.io/kyverno/kyverno:v1.11.0
+[OK] Kyverno Status: Installed
+     Version: ghcr.io/kyverno/kyverno:v1.11.4
 
-📋 Policies Generated: 7
+Policies Generated: 7
+Policies Applied: 7
 
 Generated Policies:
 ───────────────────
-1. require-run-as-non-root
-2. disallow-privilege-escalation
-3. disallow-privileged-containers
-4. disallow-host-namespaces
-5. require-resource-limits
-6. require-image-digests
-7. block-image-registries
+  1. require-run-as-non-root
+  2. disallow-privilege-escalation
+  3. require-resource-limits
+  4. disallow-privileged-containers
+  5. disallow-host-namespaces
+  6. require-image-digests
+  7. block-image-registries
 
-Next Steps:
-───────────
-1. Review the generated policies above
-2. Run: kspec enforce --spec <file> (without --dry-run) to deploy
+[OK] Policies successfully deployed
+```
+
+**Testing enforcement:**
+```bash
+# Try to create a privileged pod (should be blocked)
+kubectl run test --image=nginx --privileged=true
+
+# Output:
+# Error from server: admission webhook "validate.kyverno.svc-fail" denied the request:
+# resource Pod/default/test was blocked due to the following policies
+# disallow-privileged-containers:
+#   check-privileged: 'validation error: Privileged containers are not allowed'
 ```
 
 ## Example Specifications
@@ -178,13 +219,16 @@ See `specs/examples/` for ready-to-use templates:
 - 60+ comprehensive unit tests with 84.6% coverage
 - Comprehensive example spec demonstrating all checks
 
-✅ **Phase 5: Policy Enforcement** (NEW)
-- **`kspec enforce` command** - Generate and deploy Kyverno policies from specs
-- **Kyverno Policy Generator** - Automatic policy creation from workload/image requirements
-- **Dry-run mode** - Preview policies before deployment
-- **Installation checking** - Verify Kyverno is installed
-- **Policy export** - Save generated policies to YAML files
-- **7 policy types**: runAsNonRoot, privilege escalation, privileged containers, host namespaces, resource limits, image digests, registry blocks
+✅ **Phase 5: Policy Enforcement**
+- **`kspec enforce` command** - Generate and deploy Kyverno ClusterPolicy resources from specifications
+- **Automatic policy generation** - 7 policy types based on workload/image security requirements
+- **Dry-run mode** - Preview policies before deployment with `--dry-run`
+- **Policy export** - Save generated policies to YAML files with `--output`
+- **Kyverno detection** - Auto-detect Kyverno v1.11+ installation
+- **Idempotent deployment** - Update existing policies using resourceVersion
+- **Policy validation** - RFC 1123 DNS subdomain validation for policy names
+- **Comprehensive e2e tests** - Full test coverage including webhook readiness, policy creation, idempotency, and blocking behavior
+- **Supported policies**: runAsNonRoot, privilege escalation, privileged containers, host namespaces, resource limits, image digests, registry blocks
 
 📅 **Roadmap (Future Phases)**
 - Phase 6: Drift detection & remediation automation
