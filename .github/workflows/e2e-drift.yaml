@@ -55,21 +55,37 @@ jobs:
 
       - name: Install Kyverno
         run: |
-          echo "Installing Kyverno v1.11.4..."
-          kubectl create namespace kyverno
-          kubectl apply -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
+          echo "Installing Kyverno via Helm..."
+
+          # Add Kyverno Helm repository
+          helm repo add kyverno https://kyverno.github.io/kyverno/
+          helm repo update
+
+          # Install Kyverno using Helm (avoids CRD annotation size issues)
+          helm install kyverno kyverno/kyverno \
+            --namespace kyverno \
+            --create-namespace \
+            --version 3.1.0 \
+            --set admissionController.replicas=1 \
+            --set backgroundController.replicas=1 \
+            --set cleanupController.replicas=1 \
+            --set reportsController.replicas=1 \
+            --wait \
+            --timeout 5m
 
           echo "Waiting for Kyverno to be ready..."
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kyverno -n kyverno --timeout=300s
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=kyverno -n kyverno --timeout=300s
 
-          echo "Waiting for admission webhooks..."
-          sleep 30
+          echo "Waiting for admission webhooks to stabilize..."
+          sleep 15
 
           # Verify webhooks are configured
-          kubectl get validatingwebhookconfigurations | grep kyverno || echo "WARNING: No Kyverno webhooks found"
+          kubectl get validatingwebhookconfigurations | grep kyverno
+          kubectl get mutatingwebhookconfigurations | grep kyverno
 
           echo "Kyverno installation complete"
           kubectl get pods -n kyverno
+          kubectl get crds | grep kyverno
 
       - name: Create test spec
         run: |
