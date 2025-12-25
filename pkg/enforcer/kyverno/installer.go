@@ -18,8 +18,9 @@ func NewInstaller() *Installer {
 
 // IsInstalled checks if Kyverno is installed in the cluster.
 func (i *Installer) IsInstalled(ctx context.Context, client kubernetes.Interface) (bool, error) {
-	// Check for Kyverno deployment in kyverno namespace
-	deployment, err := client.AppsV1().Deployments("kyverno").Get(ctx, "kyverno", metav1.GetOptions{})
+	// Check for Kyverno admission controller deployment in kyverno namespace
+	// Kyverno v1.11+ uses "kyverno-admission-controller" as the deployment name
+	deployment, err := client.AppsV1().Deployments("kyverno").Get(ctx, "kyverno-admission-controller", metav1.GetOptions{})
 	if err != nil {
 		// Namespace or deployment doesn't exist
 		return false, nil
@@ -56,7 +57,8 @@ For more information, visit: https://kyverno.io/docs/installation/`
 
 // GetVersion attempts to get the installed Kyverno version.
 func (i *Installer) GetVersion(ctx context.Context, client kubernetes.Interface) (string, error) {
-	deployment, err := client.AppsV1().Deployments("kyverno").Get(ctx, "kyverno", metav1.GetOptions{})
+	// Kyverno v1.11+ uses "kyverno-admission-controller" as the deployment name
+	deployment, err := client.AppsV1().Deployments("kyverno").Get(ctx, "kyverno-admission-controller", metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get Kyverno deployment: %w", err)
 	}

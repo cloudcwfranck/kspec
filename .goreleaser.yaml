@@ -1,0 +1,155 @@
+project_name: kspec
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: kspec
+    main: ./cmd/kspec
+    binary: kspec
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+    flags:
+      - -trimpath
+
+archives:
+  - id: kspec-archive
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - docs/*
+      - specs/examples/*
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - 'README'
+  groups:
+    - title: 'New Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Security Updates'
+      regexp: '^.*?sec(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: 'Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: cloudcwfranck
+    name: kspec
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## kspec {{ .Version }}
+
+    **Ship a cluster spec, not a platform.**
+
+    Kubernetes Cluster Compliance Enforcer - validates clusters against versioned specifications and enforces security policies.
+  footer: |
+    ## Installation
+
+    ### Binary Installation
+
+    Download the binary for your platform from the assets below and add it to your PATH.
+
+    ### Verify Installation
+
+    ```bash
+    kspec version
+    ```
+
+    ### Quick Start
+
+    ```bash
+    # Create a cluster specification
+    cat > cluster-spec.yaml <<EOF
+    apiVersion: kspec.dev/v1
+    kind: ClusterSpecification
+    metadata:
+      name: my-cluster-spec
+      version: "1.0.0"
+    spec:
+      kubernetes:
+        minVersion: "1.26.0"
+    EOF
+
+    # Validate your cluster
+    kspec scan --spec cluster-spec.yaml
+
+    # Enforce policies (requires Kyverno)
+    kspec enforce --spec cluster-spec.yaml
+    ```
+
+    ## Documentation
+
+    - [README](https://github.com/cloudcwfranck/kspec/blob/main/README.md)
+    - [Examples](https://github.com/cloudcwfranck/kspec/tree/main/specs/examples)
+    - [Architecture](https://github.com/cloudcwfranck/kspec/blob/main/AGENTS.md)
+
+# Kubernetes manifests for kspec installation
+kustomize:
+  - ids:
+      - kspec-archive
+    paths:
+      - deploy/manifests
+
+# Docker images (future - when we have a container)
+# dockers:
+#   - ids:
+#       - kspec
+#     goos: linux
+#     goarch: amd64
+#     image_templates:
+#       - "ghcr.io/cloudcwfranck/kspec:{{ .Version }}"
+#       - "ghcr.io/cloudcwfranck/kspec:latest"
+#     dockerfile: Dockerfile
+#     build_flag_templates:
+#       - "--label=org.opencontainers.image.created={{.Date}}"
+#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
+#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#       - "--label=org.opencontainers.image.version={{.Version}}"
+#       - "--platform=linux/amd64"
+
+announce:
+  skip: true

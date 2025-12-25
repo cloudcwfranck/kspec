@@ -65,11 +65,11 @@ func (r *MarkdownReporter) writeSummary(sb *strings.Builder, result *scanner.Sca
 	}
 
 	// Status badge
-	status := "🟢 PASS"
+	status := "[PASS]"
 	if result.Summary.Failed > 0 {
-		status = "🔴 FAIL"
+		status = "[FAIL]"
 	} else if result.Summary.Warnings > 0 {
-		status = "🟡 WARN"
+		status = "[WARN]"
 	}
 
 	sb.WriteString(fmt.Sprintf("**Overall Status**: %s\n\n", status))
@@ -80,10 +80,10 @@ func (r *MarkdownReporter) writeSummary(sb *strings.Builder, result *scanner.Sca
 	sb.WriteString("| Metric | Count |\n")
 	sb.WriteString("|--------|-------|\n")
 	sb.WriteString(fmt.Sprintf("| Total Checks | %d |\n", result.Summary.TotalChecks))
-	sb.WriteString(fmt.Sprintf("| ✅ Passed | %d |\n", result.Summary.Passed))
-	sb.WriteString(fmt.Sprintf("| ❌ Failed | %d |\n", result.Summary.Failed))
-	sb.WriteString(fmt.Sprintf("| ⚠️ Warnings | %d |\n", result.Summary.Warnings))
-	sb.WriteString(fmt.Sprintf("| ⏭️ Skipped | %d |\n\n", result.Summary.Skipped))
+	sb.WriteString(fmt.Sprintf("| Passed | %d |\n", result.Summary.Passed))
+	sb.WriteString(fmt.Sprintf("| Failed | %d |\n", result.Summary.Failed))
+	sb.WriteString(fmt.Sprintf("| Warnings | %d |\n", result.Summary.Warnings))
+	sb.WriteString(fmt.Sprintf("| Skipped | %d |\n\n", result.Summary.Skipped))
 }
 
 // writeDetailedResults writes detailed results by category.
@@ -93,7 +93,7 @@ func (r *MarkdownReporter) writeDetailedResults(sb *strings.Builder, result *sca
 	// Failed checks
 	failures := r.filterByStatus(result.Results, scanner.StatusFail)
 	if len(failures) > 0 {
-		sb.WriteString("### ❌ Failed Checks\n\n")
+		sb.WriteString("### [FAIL] Failed Checks\n\n")
 		for _, check := range failures {
 			r.writeCheckDetail(sb, check)
 		}
@@ -102,7 +102,7 @@ func (r *MarkdownReporter) writeDetailedResults(sb *strings.Builder, result *sca
 	// Warnings
 	warnings := r.filterByStatus(result.Results, scanner.StatusWarn)
 	if len(warnings) > 0 {
-		sb.WriteString("### ⚠️ Warnings\n\n")
+		sb.WriteString("### [WARN] Warnings\n\n")
 		for _, check := range warnings {
 			r.writeCheckDetail(sb, check)
 		}
@@ -111,7 +111,7 @@ func (r *MarkdownReporter) writeDetailedResults(sb *strings.Builder, result *sca
 	// Passed checks
 	passed := r.filterByStatus(result.Results, scanner.StatusPass)
 	if len(passed) > 0 {
-		sb.WriteString("### ✅ Passed Checks\n\n")
+		sb.WriteString("### [PASS] Passed Checks\n\n")
 		for _, check := range passed {
 			sb.WriteString(fmt.Sprintf("- **%s**: %s\n", check.Name, check.Message))
 		}
@@ -121,7 +121,7 @@ func (r *MarkdownReporter) writeDetailedResults(sb *strings.Builder, result *sca
 	// Skipped checks
 	skipped := r.filterByStatus(result.Results, scanner.StatusSkip)
 	if len(skipped) > 0 {
-		sb.WriteString("### ⏭️ Skipped Checks\n\n")
+		sb.WriteString("### [SKIP] Skipped Checks\n\n")
 		for _, check := range skipped {
 			sb.WriteString(fmt.Sprintf("- **%s**: %s\n", check.Name, check.Message))
 		}
@@ -135,9 +135,9 @@ func (r *MarkdownReporter) writeCheckDetail(sb *strings.Builder, check scanner.C
 
 	// Severity badge
 	if check.Severity != "" {
-		severityEmoji := r.getSeverityEmoji(check.Severity)
+		severityLabel := r.getSeverityLabel(check.Severity)
 		sb.WriteString(fmt.Sprintf("**Severity**: %s %s\n\n",
-			severityEmoji, strings.ToUpper(string(check.Severity))))
+			severityLabel, strings.ToUpper(string(check.Severity))))
 	}
 
 	// Message
@@ -180,7 +180,7 @@ func (r *MarkdownReporter) writeRemediationSection(sb *strings.Builder, result *
 	low := r.filterBySeverity(failures, scanner.SeverityLow)
 
 	if len(critical) > 0 {
-		sb.WriteString("### 🔴 Critical Priority\n\n")
+		sb.WriteString("### [CRITICAL] Critical Priority\n\n")
 		for i, check := range critical {
 			sb.WriteString(fmt.Sprintf("%d. **%s**: %s\n", i+1, check.Name, check.Message))
 		}
@@ -188,7 +188,7 @@ func (r *MarkdownReporter) writeRemediationSection(sb *strings.Builder, result *
 	}
 
 	if len(high) > 0 {
-		sb.WriteString("### 🟠 High Priority\n\n")
+		sb.WriteString("### [HIGH] High Priority\n\n")
 		for i, check := range high {
 			sb.WriteString(fmt.Sprintf("%d. **%s**: %s\n", i+1, check.Name, check.Message))
 		}
@@ -196,7 +196,7 @@ func (r *MarkdownReporter) writeRemediationSection(sb *strings.Builder, result *
 	}
 
 	if len(medium) > 0 {
-		sb.WriteString("### 🟡 Medium Priority\n\n")
+		sb.WriteString("### [MEDIUM] Medium Priority\n\n")
 		for i, check := range medium {
 			sb.WriteString(fmt.Sprintf("%d. **%s**: %s\n", i+1, check.Name, check.Message))
 		}
@@ -204,7 +204,7 @@ func (r *MarkdownReporter) writeRemediationSection(sb *strings.Builder, result *
 	}
 
 	if len(low) > 0 {
-		sb.WriteString("### 🟢 Low Priority\n\n")
+		sb.WriteString("### [LOW] Low Priority\n\n")
 		for i, check := range low {
 			sb.WriteString(fmt.Sprintf("%d. **%s**: %s\n", i+1, check.Name, check.Message))
 		}
@@ -234,18 +234,18 @@ func (r *MarkdownReporter) filterBySeverity(results []scanner.CheckResult, sever
 	return filtered
 }
 
-// getSeverityEmoji returns an emoji for a severity level.
-func (r *MarkdownReporter) getSeverityEmoji(severity scanner.Severity) string {
+// getSeverityLabel returns a label for a severity level.
+func (r *MarkdownReporter) getSeverityLabel(severity scanner.Severity) string {
 	switch severity {
 	case scanner.SeverityCritical:
-		return "🔴"
+		return "[CRITICAL]"
 	case scanner.SeverityHigh:
-		return "🟠"
+		return "[HIGH]"
 	case scanner.SeverityMedium:
-		return "🟡"
+		return "[MEDIUM]"
 	case scanner.SeverityLow:
-		return "🟢"
+		return "[LOW]"
 	default:
-		return "⚪"
+		return "[INFO]"
 	}
 }

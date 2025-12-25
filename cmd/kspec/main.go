@@ -12,16 +12,19 @@ import (
 	"github.com/cloudcwfranck/kspec/pkg/scanner/checks"
 	"github.com/cloudcwfranck/kspec/pkg/spec"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 )
 
 var (
-	// Version is the kspec version (can be overridden by build flags)
-	version = "1.0.0"
+	// Version information (injected by goreleaser at build time)
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+	builtBy = "manual"
 )
 
 func main() {
@@ -47,13 +50,26 @@ enforces security policies, and generates compliance evidence for audits.`,
 }
 
 func newVersionCmd() *cobra.Command {
-	return &cobra.Command{
+	var verbose bool
+
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("kspec v%s\n", version)
+			if verbose {
+				fmt.Printf("kspec version: %s\n", version)
+				fmt.Printf("commit: %s\n", commit)
+				fmt.Printf("built: %s\n", date)
+				fmt.Printf("built by: %s\n", builtBy)
+			} else {
+				fmt.Printf("kspec %s\n", version)
+			}
 		},
 	}
+
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed version information")
+
+	return cmd
 }
 
 func newValidateCmd() *cobra.Command {
@@ -246,7 +262,7 @@ func printTextReport(result *scanner.ScanResult) {
 	// Critical failures
 	criticalFailures := filterResults(result.Results, scanner.StatusFail, scanner.SeverityCritical)
 	if len(criticalFailures) > 0 {
-		fmt.Printf("❌ CRITICAL FAILURES (%d)\n", len(criticalFailures))
+		fmt.Printf("[CRITICAL] FAILURES (%d)\n", len(criticalFailures))
 		fmt.Printf("─────────────────────────\n")
 		for _, r := range criticalFailures {
 			fmt.Printf("[%s] %s\n", r.Name, r.Message)
@@ -261,7 +277,7 @@ func printTextReport(result *scanner.ScanResult) {
 	otherFailures := filterResults(result.Results, scanner.StatusFail, "")
 	otherFailures = excludeBySeverity(otherFailures, scanner.SeverityCritical)
 	if len(otherFailures) > 0 {
-		fmt.Printf("⚠️  FAILURES (%d)\n", len(otherFailures))
+		fmt.Printf("[FAIL] FAILURES (%d)\n", len(otherFailures))
 		fmt.Printf("─────────────────────────\n")
 		for _, r := range otherFailures {
 			fmt.Printf("[%s] %s\n", r.Name, r.Message)
@@ -275,7 +291,7 @@ func printTextReport(result *scanner.ScanResult) {
 	// Warnings
 	warnings := filterResults(result.Results, scanner.StatusWarn, "")
 	if len(warnings) > 0 {
-		fmt.Printf("⚠️  WARNINGS (%d)\n", len(warnings))
+		fmt.Printf("[WARN] WARNINGS (%d)\n", len(warnings))
 		fmt.Printf("─────────────────\n")
 		for _, r := range warnings {
 			fmt.Printf("[%s] %s\n", r.Name, r.Message)
@@ -286,10 +302,10 @@ func printTextReport(result *scanner.ScanResult) {
 	// Passed checks
 	passed := filterResults(result.Results, scanner.StatusPass, "")
 	if len(passed) > 0 {
-		fmt.Printf("✅ PASSED CHECKS (%d)\n", len(passed))
+		fmt.Printf("[PASS] PASSED CHECKS (%d)\n", len(passed))
 		fmt.Printf("─────────────────────\n")
 		for _, r := range passed {
-			fmt.Printf("✓ %s\n", r.Message)
+			fmt.Printf("  %s\n", r.Message)
 		}
 		fmt.Printf("\n")
 	}
@@ -424,22 +440,22 @@ func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile 
 
 	// Kyverno status
 	if result.KyvernoInstalled {
-		fmt.Printf("✅ Kyverno Status: Installed\n")
+		fmt.Printf("[OK] Kyverno Status: Installed\n")
 		if result.KyvernoVersion != "" {
-			fmt.Printf("   Version: %s\n", result.KyvernoVersion)
+			fmt.Printf("     Version: %s\n", result.KyvernoVersion)
 		}
 	} else {
-		fmt.Printf("❌ Kyverno Status: Not Installed\n")
+		fmt.Printf("[ERROR] Kyverno Status: Not Installed\n")
 	}
 	fmt.Printf("\n")
 
 	// Policies generated
-	fmt.Printf("📋 Policies Generated: %d\n", result.PoliciesGenerated)
+	fmt.Printf("Policies Generated: %d\n", result.PoliciesGenerated)
 
 	if dryRun {
-		fmt.Printf("   Mode: Dry-run (policies not deployed)\n")
+		fmt.Printf("Mode: Dry-run (policies not deployed)\n")
 	} else {
-		fmt.Printf("   Policies Applied: %d\n", result.PoliciesApplied)
+		fmt.Printf("Policies Applied: %d\n", result.PoliciesApplied)
 	}
 	fmt.Printf("\n")
 
@@ -453,7 +469,7 @@ func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile 
 			if unstruct, ok := policy.(interface{ GetName() string }); ok {
 				policyName = unstruct.GetName()
 			}
-			fmt.Printf("%d. %s\n", i+1, policyName)
+			fmt.Printf("  %d. %s\n", i+1, policyName)
 		}
 		fmt.Printf("\n")
 	}
@@ -461,17 +477,17 @@ func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile 
 	// Save to file if requested
 	if outputFile != "" && result.PoliciesGenerated > 0 {
 		if err := savePolicies(result.Policies, outputFile); err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  Failed to save policies to file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[ERROR] Failed to save policies to file: %v\n", err)
 		} else {
-			fmt.Printf("💾 Policies saved to: %s\n\n", outputFile)
+			fmt.Printf("[OK] Policies saved to: %s\n\n", outputFile)
 		}
 	}
 
 	// Errors
 	if len(result.Errors) > 0 {
-		fmt.Printf("⚠️  Errors (%d):\n", len(result.Errors))
+		fmt.Printf("[ERROR] Policy Application Errors (%d):\n", len(result.Errors))
 		for _, err := range result.Errors {
-			fmt.Printf("   - %s\n", err)
+			fmt.Printf("  - %s\n", err)
 		}
 		fmt.Printf("\n")
 	}
@@ -489,7 +505,7 @@ func printEnforceResult(result *enforcer.EnforceResult, dryRun bool, outputFile 
 		}
 		fmt.Printf("\n")
 	} else if result.PoliciesApplied > 0 {
-		fmt.Printf("✅ Policies successfully deployed!\n")
+		fmt.Printf("[OK] Policies successfully deployed\n")
 		fmt.Printf("\n")
 		fmt.Printf("Verify policies:\n")
 		fmt.Printf("  kubectl get clusterpolicies\n")
@@ -506,15 +522,22 @@ func savePolicies(policies []runtime.Object, filename string) error {
 	}
 	defer file.Close()
 
-	encoder := yaml.NewEncoder(file)
-	defer encoder.Close()
-
-	for _, policy := range policies {
-		if err := encoder.Encode(policy); err != nil {
-			return err
+	for i, policy := range policies {
+		// Add document separator before each policy (except the first)
+		if i > 0 {
+			fmt.Fprintln(file, "---")
 		}
-		// Add YAML document separator
-		fmt.Fprintln(file, "---")
+
+		// Use Kubernetes YAML marshaler which properly handles TypeMeta
+		yamlBytes, err := yaml.Marshal(policy)
+		if err != nil {
+			return fmt.Errorf("failed to marshal policy %d: %w", i, err)
+		}
+
+		// Write the YAML to file
+		if _, err := file.Write(yamlBytes); err != nil {
+			return fmt.Errorf("failed to write policy %d: %w", i, err)
+		}
 	}
 
 	return nil
