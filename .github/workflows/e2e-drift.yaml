@@ -126,12 +126,12 @@ jobs:
           ./kspec enforce --spec test-spec.yaml
 
           echo "Verifying policies were created..."
-          kubectl get clusterpolicies
+          kubectl get clusterpolicies -o custom-columns=NAME:.metadata.name,GENERATED:.metadata.annotations.'kspec\.dev/generated'
 
           # Store list of created policies
           kubectl get clusterpolicies -o json > initial-policies.json
-          echo "Initial policies:"
-          cat initial-policies.json | jq -r '.items[].metadata.name'
+          echo "Initial policies (kspec-generated):"
+          cat initial-policies.json | jq -r '.items[] | select(.metadata.annotations."kspec.dev/generated" != null) | .metadata.name'
 
       - name: Verify policies are working
         run: |
@@ -151,7 +151,10 @@ jobs:
         run: |
           echo "Simulating drift by manually deleting a policy..."
 
-          # Delete the runAsNonRoot policy
+          echo "Policies before deletion:"
+          kubectl get clusterpolicies -o custom-columns=NAME:.metadata.name,GENERATED:.metadata.annotations.'kspec\.dev/generated'
+
+          # Delete the runAsNonRoot policy (or first kspec-generated policy)
           POLICY_NAME="require-run-as-non-root"
 
           if kubectl get clusterpolicy $POLICY_NAME &>/dev/null; then
@@ -159,22 +162,29 @@ jobs:
             kubectl delete clusterpolicy $POLICY_NAME
             echo "✓ Policy deleted"
           else
-            echo "Policy not found, using first available policy..."
-            POLICY_NAME=$(kubectl get clusterpolicies -o jsonpath='{.items[0].metadata.name}')
-            echo "Deleting policy: $POLICY_NAME"
-            kubectl delete clusterpolicy $POLICY_NAME
+            echo "Policy $POLICY_NAME not found, looking for first kspec-generated policy..."
+            POLICY_NAME=$(kubectl get clusterpolicies -o json | jq -r '.items[] | select(.metadata.annotations."kspec.dev/generated" != null) | .metadata.name' | head -1)
+            if [ -n "$POLICY_NAME" ]; then
+              echo "Deleting policy: $POLICY_NAME"
+              kubectl delete clusterpolicy $POLICY_NAME
+            else
+              echo "No kspec-generated policies found, deleting first policy..."
+              POLICY_NAME=$(kubectl get clusterpolicies -o jsonpath='{.items[0].metadata.name}')
+              echo "Deleting policy: $POLICY_NAME"
+              kubectl delete clusterpolicy $POLICY_NAME
+            fi
           fi
 
           echo "Remaining policies:"
-          kubectl get clusterpolicies
+          kubectl get clusterpolicies -o custom-columns=NAME:.metadata.name,GENERATED:.metadata.annotations.'kspec\.dev/generated'
 
       - name: Detect drift
         run: |
           echo "Running drift detection..."
           ./kspec drift detect --spec test-spec.yaml --output json > drift-report.json || true
 
-          echo "Drift report:"
-          cat drift-report.json | jq '.'
+          echo "Drift report summary:"
+          cat drift-report.json | jq '{detected: .drift.detected, total: .drift.counts.total, policies: .drift.counts.policies, compliance: .drift.counts.compliance}'
 
           # Verify drift was detected
           DRIFT_COUNT=$(cat drift-report.json | jq -r '.drift.counts.total')
@@ -187,14 +197,21 @@ jobs:
             exit 1
           fi
 
-          # Verify it's a missing policy drift
-          echo "All drift kinds in report:"
-          cat drift-report.json | jq -r '.events[] | .drift_kind' | sort | uniq
+          # Analyze drift events
+          echo ""
+          echo "Drift event breakdown:"
+          cat drift-report.json | jq -r '.events[] | "  [\(.type)] \(.drift_kind): \(.resource.name // .resource.path)"'
 
+          echo ""
+          echo "All drift kinds in report:"
+          cat drift-report.json | jq -r '.events[] | .drift_kind' | sort | uniq -c
+
+          echo ""
           echo "All event types in report:"
-          cat drift-report.json | jq -r '.events[] | .type' | sort | uniq
+          cat drift-report.json | jq -r '.events[] | .type' | sort | uniq -c
 
           MISSING_POLICIES=$(cat drift-report.json | jq -r '.events[] | select(.drift_kind == "missing") | .resource.name')
+          echo ""
           echo "Missing policies: $MISSING_POLICIES"
 
           if [ -n "$MISSING_POLICIES" ]; then
