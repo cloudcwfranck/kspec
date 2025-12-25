@@ -12,11 +12,11 @@ import (
 	"github.com/cloudcwfranck/kspec/pkg/scanner/checks"
 	"github.com/cloudcwfranck/kspec/pkg/spec"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -522,18 +522,21 @@ func savePolicies(policies []runtime.Object, filename string) error {
 	}
 	defer file.Close()
 
-	encoder := yaml.NewEncoder(file)
-	encoder.SetIndent(2) // Standard Kubernetes YAML indentation
-	defer encoder.Close()
-
 	for i, policy := range policies {
 		// Add document separator before each policy (except the first)
 		if i > 0 {
 			fmt.Fprintln(file, "---")
 		}
 
-		if err := encoder.Encode(policy); err != nil {
-			return err
+		// Use Kubernetes YAML marshaler which properly handles TypeMeta
+		yamlBytes, err := yaml.Marshal(policy)
+		if err != nil {
+			return fmt.Errorf("failed to marshal policy %d: %w", i, err)
+		}
+
+		// Write the YAML to file
+		if _, err := file.Write(yamlBytes); err != nil {
+			return fmt.Errorf("failed to write policy %d: %w", i, err)
 		}
 	}
 
