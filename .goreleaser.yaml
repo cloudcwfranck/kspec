@@ -85,13 +85,35 @@ release:
 
     **Ship a cluster spec, not a platform.**
 
-    Kubernetes Cluster Compliance Enforcer - validates clusters against versioned specifications and enforces security policies.
+    Kubernetes Cluster Compliance Enforcer - validates clusters against versioned specifications, enforces security policies, and monitors for configuration drift.
+
+    ### What's in this release
+
+    ✅ **Phase 1-6 Complete**
+    - 🔍 Cluster Security Scanning (14 comprehensive checks)
+    - 📋 Cluster Specification (ClusterSpecification CRD)
+    - 🛡️ Policy Enforcement (Kyverno integration)
+    - 🎯 Drift Detection & Auto-Remediation
+    - 📊 Compliance Reporting
+    - 🔄 Continuous Monitoring
   footer: |
     ## Installation
 
-    ### Binary Installation
+    ### Quick Install (Linux/macOS)
 
-    Download the binary for your platform from the assets below and add it to your PATH.
+    ```bash
+    # Linux x86_64
+    curl -L https://github.com/cloudcwfranck/kspec/releases/download/{{ .Tag }}/kspec_{{ .Version }}_Linux_amd64.tar.gz | tar xz
+    sudo mv kspec /usr/local/bin/
+
+    # macOS Apple Silicon
+    curl -L https://github.com/cloudcwfranck/kspec/releases/download/{{ .Tag }}/kspec_{{ .Version }}_Darwin_arm64.tar.gz | tar xz
+    sudo mv kspec /usr/local/bin/
+
+    # macOS Intel
+    curl -L https://github.com/cloudcwfranck/kspec/releases/download/{{ .Tag }}/kspec_{{ .Version }}_Darwin_amd64.tar.gz | tar xz
+    sudo mv kspec /usr/local/bin/
+    ```
 
     ### Verify Installation
 
@@ -99,33 +121,36 @@ release:
     kspec version
     ```
 
-    ### Quick Start
+    ## Quick Start
 
     ```bash
-    # Create a cluster specification
-    cat > cluster-spec.yaml <<EOF
-    apiVersion: kspec.dev/v1
-    kind: ClusterSpecification
-    metadata:
-      name: my-cluster-spec
-      version: "1.0.0"
-    spec:
-      kubernetes:
-        minVersion: "1.26.0"
-    EOF
+    # 1. Scan your cluster for security issues
+    kspec scan --output-format=text
 
-    # Validate your cluster
-    kspec scan --spec cluster-spec.yaml
+    # 2. Generate a cluster specification from current state
+    kspec scan --output-format=spec > cluster-spec.yaml
 
-    # Enforce policies (requires Kyverno)
+    # 3. Enforce security policies with Kyverno
     kspec enforce --spec cluster-spec.yaml
+
+    # 4. Detect configuration drift
+    kspec drift detect --spec cluster-spec.yaml
+
+    # 5. Auto-remediate drift
+    kspec drift remediate --spec cluster-spec.yaml
     ```
 
     ## Documentation
 
-    - [README](https://github.com/cloudcwfranck/kspec/blob/main/README.md)
-    - [Examples](https://github.com/cloudcwfranck/kspec/tree/main/specs/examples)
-    - [Architecture](https://github.com/cloudcwfranck/kspec/blob/main/AGENTS.md)
+    - 📚 [Getting Started Guide](https://github.com/cloudcwfranck/kspec/blob/main/README.md)
+    - 🔍 [Security Scanning](https://github.com/cloudcwfranck/kspec/blob/main/docs/SCANNING.md)
+    - 🛡️ [Policy Enforcement](https://github.com/cloudcwfranck/kspec/blob/main/docs/ENFORCEMENT.md)
+    - 🎯 [Drift Detection](https://github.com/cloudcwfranck/kspec/blob/main/docs/DRIFT_DETECTION.md)
+    - 📋 [Examples](https://github.com/cloudcwfranck/kspec/tree/main/specs/examples)
+
+    ---
+
+    **Full Changelog**: https://github.com/cloudcwfranck/kspec/compare/{{ .PreviousTag }}...{{ .Tag }}
 
 # Kubernetes manifests for kspec installation
 kustomize:
