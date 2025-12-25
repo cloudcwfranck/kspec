@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kspec-cluster-spec
+  namespace: kspec-system
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/component: drift-monitor
+data:
+  # Replace this with your actual cluster specification
+  cluster-spec.yaml: |
+    apiVersion: kspec.dev/v1
+    kind: ClusterSpecification
+    metadata:
+      name: production-cluster
+      version: "1.0.0"
+      description: "Production cluster compliance specification"
+      labels:
+        environment: production
+        compliance-framework: NIST-800-53
+
+    spec:
+      # Kubernetes version requirements
+      kubernetes:
+        minVersion: "1.26.0"
+        maxVersion: "1.30.0"
+
+      # Pod Security Standards
+      podSecurity:
+        enforce: "baseline"
+        audit: "restricted"
+        warn: "restricted"
+        exemptions:
+          - namespace: "kube-system"
+            level: "privileged"
+            reason: "System components require elevated privileges"
+
+      # Network policy requirements
+      network:
+        defaultDeny: true
+
+      # Workload security requirements
+      workloads:
+        containers:
+          required:
+            - key: "securityContext.runAsNonRoot"
+              value: true
+            - key: "securityContext.allowPrivilegeEscalation"
+              value: false
+          forbidden:
+            - key: "securityContext.privileged"
+              value: true
+            - key: "securityContext.hostNetwork"
+              value: true
+            - key: "securityContext.hostPID"
+              value: true
+            - key: "securityContext.hostIPC"
+              value: true
+
+        images:
+          requireDigests: true
+          blockedRegistries:
+            - "docker.io/*"  # Block public Docker Hub
+          allowedRegistries:
+            - "gcr.io/mycompany/*"
+            - "*.azurecr.io/mycompany/*"
+
+      # RBAC requirements
+      rbac:
+        forbiddenRules:
+          - apiGroup: "*"
+            resource: "*"
+            verbs: ["*"]
+
+      # Admission control requirements
+      admission:
+        required:
+          - type: "ValidatingWebhookConfiguration"
+            namePattern: "kyverno-*"
+            minCount: 1
+
+      # Observability requirements
+      observability:
+        metrics:
+          required: true
+          providers:
+            - "prometheus"
+            - "metrics-server"

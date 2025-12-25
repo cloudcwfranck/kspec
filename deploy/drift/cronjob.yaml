@@ -1,0 +1,160 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kspec-drift-monitor
+  namespace: kspec-system
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/component: drift-monitor
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  # Run every 5 minutes (adjust as needed)
+  # "*/5 * * * *" = every 5 minutes
+  # "*/15 * * * *" = every 15 minutes
+  # "0 * * * *" = every hour
+  schedule: "*/5 * * * *"
+
+  # Keep last 3 successful and 1 failed job for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+
+  # Don't start new job if previous one is still running
+  concurrencyPolicy: Forbid
+
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kspec
+        app.kubernetes.io/component: drift-monitor
+    spec:
+      # Clean up completed jobs after 1 hour
+      ttlSecondsAfterFinished: 3600
+
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: kspec
+            app.kubernetes.io/component: drift-monitor
+        spec:
+          serviceAccountName: kspec-drift-monitor
+          restartPolicy: OnFailure
+
+          containers:
+            - name: drift-detect
+              # Replace with your kspec image
+              # Example: gcr.io/mycompany/kspec:v1.0.0
+              image: kspec:latest
+              imagePullPolicy: IfNotPresent
+
+              command:
+                - /usr/local/bin/kspec
+                - drift
+                - detect
+                - --spec=/etc/kspec/cluster-spec.yaml
+                - --output=json
+
+              volumeMounts:
+                - name: cluster-spec
+                  mountPath: /etc/kspec
+                  readOnly: true
+
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 65534  # nobody user
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+
+          volumes:
+            - name: cluster-spec
+              configMap:
+                name: kspec-cluster-spec
+---
+# Optional: CronJob for drift remediation (runs less frequently)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kspec-drift-remediate
+  namespace: kspec-system
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/component: drift-remediate
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  # Run every 15 minutes (adjust as needed)
+  schedule: "*/15 * * * *"
+
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+
+  # Suspend by default - enable manually when auto-remediation is desired
+  suspend: true
+
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kspec
+        app.kubernetes.io/component: drift-remediate
+    spec:
+      ttlSecondsAfterFinished: 3600
+
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: kspec
+            app.kubernetes.io/component: drift-remediate
+        spec:
+          serviceAccountName: kspec-drift-monitor
+          restartPolicy: OnFailure
+
+          containers:
+            - name: drift-remediate
+              image: kspec:latest
+              imagePullPolicy: IfNotPresent
+
+              command:
+                - /usr/local/bin/kspec
+                - drift
+                - remediate
+                - --spec=/etc/kspec/cluster-spec.yaml
+                # Remove --dry-run when ready for automatic remediation
+                - --dry-run
+
+              volumeMounts:
+                - name: cluster-spec
+                  mountPath: /etc/kspec
+                  readOnly: true
+
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 65534
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+
+          volumes:
+            - name: cluster-spec
+              configMap:
+                name: kspec-cluster-spec

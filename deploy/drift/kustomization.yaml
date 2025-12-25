@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kspec-system
+
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - cronjob.yaml
+
+# Customize the image used for drift monitoring
+images:
+  - name: kspec
+    newName: ghcr.io/cloudcwfranck/kspec
+    newTag: latest
+
+# Add common labels to all resources
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/part-of: kspec
+
+# Add common annotations
+commonAnnotations:
+  kspec.dev/description: "Automated drift detection and remediation"
