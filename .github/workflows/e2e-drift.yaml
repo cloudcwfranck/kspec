@@ -255,19 +255,33 @@ jobs:
           # Re-run drift detection
           ./kspec drift detect --spec test-spec.yaml --output json > post-remediation-drift.json || true
 
-          echo "Post-remediation drift report:"
-          cat post-remediation-drift.json | jq '.'
+          echo "Post-remediation drift report summary:"
+          cat post-remediation-drift.json | jq '{detected: .drift.detected, total: .drift.counts.total, policies: .drift.counts.policies, compliance: .drift.counts.compliance}'
 
-          DRIFT_COUNT=$(cat post-remediation-drift.json | jq -r '.drift.counts.total')
-          echo "Remaining drift events: $DRIFT_COUNT"
+          POLICY_DRIFT_COUNT=$(cat post-remediation-drift.json | jq -r '.drift.counts.policies')
+          COMPLIANCE_DRIFT_COUNT=$(cat post-remediation-drift.json | jq -r '.drift.counts.compliance')
 
-          if [ "$DRIFT_COUNT" -eq 0 ]; then
-            echo "✓ All drift successfully remediated"
+          echo ""
+          echo "Policy drift events: $POLICY_DRIFT_COUNT"
+          echo "Compliance drift events: $COMPLIANCE_DRIFT_COUNT"
+
+          # Policy drift should be 0 after remediation (policies restored)
+          if [ "$POLICY_DRIFT_COUNT" -eq 0 ]; then
+            echo "✓ Policy drift successfully remediated (all missing policies restored)"
           else
-            echo "✗ ERROR: Drift still exists after remediation"
-            echo "Remaining drift events:"
-            cat post-remediation-drift.json | jq -r '.events[]'
+            echo "✗ ERROR: Policy drift still exists after remediation"
+            echo "Remaining policy drift events:"
+            cat post-remediation-drift.json | jq -r '.events[] | select(.type == "policy")'
             exit 1
+          fi
+
+          # Compliance drift may still exist (requires manual intervention or pod restarts)
+          if [ "$COMPLIANCE_DRIFT_COUNT" -gt 0 ]; then
+            echo "⚠ Note: Compliance drift still exists ($COMPLIANCE_DRIFT_COUNT violations)"
+            echo "This is expected - compliance violations require manual intervention"
+            echo "Existing pods that violate policies need to be restarted or fixed"
+          else
+            echo "✓ No compliance drift detected"
           fi
 
       - name: Test drift detection for modified policy
@@ -342,12 +356,15 @@ jobs:
           echo ""
           echo "Tests completed:"
           echo "  ✓ Policy enforcement"
-          echo "  ✓ Drift detection (missing policy)"
+          echo "  ✓ Drift detection (policy + compliance)"
           echo "  ✓ Drift remediation (dry-run)"
           echo "  ✓ Drift remediation (apply)"
-          echo "  ✓ Verification after remediation"
+          echo "  ✓ Policy drift verification (missing policies restored)"
           echo "  ✓ Modified policy detection"
           echo "  ✓ Watch mode"
+          echo ""
+          echo "Note: Compliance drift is detected but not auto-remediated"
+          echo "      (requires manual intervention to fix running pods)"
           echo ""
           echo "All drift detection tests passed!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
