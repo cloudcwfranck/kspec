@@ -523,14 +523,18 @@ func savePolicies(policies []runtime.Object, filename string) error {
 	defer file.Close()
 
 	encoder := yaml.NewEncoder(file)
+	encoder.SetIndent(2) // Standard Kubernetes YAML indentation
 	defer encoder.Close()
 
-	for _, policy := range policies {
+	for i, policy := range policies {
+		// Add document separator before each policy (except the first)
+		if i > 0 {
+			fmt.Fprintln(file, "---")
+		}
+
 		if err := encoder.Encode(policy); err != nil {
 			return err
 		}
-		// Add YAML document separator
-		fmt.Fprintln(file, "---")
 	}
 
 	return nil

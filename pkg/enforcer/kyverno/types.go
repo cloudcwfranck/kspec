@@ -9,9 +9,9 @@ import (
 // This is a vendored subset of github.com/kyverno/kyverno/api/kyverno/v1
 // to avoid heavyweight dependencies while maintaining API compatibility.
 type ClusterPolicy struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              ClusterPolicySpec `json:"spec"`
+	metav1.TypeMeta   `json:",inline" yaml:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec              ClusterPolicySpec `json:"spec" yaml:"spec"`
 }
 
 // ClusterPolicySpec defines the policy specification.
