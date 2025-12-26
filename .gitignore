@@ -1,5 +1,6 @@
 # Binaries
 /kspec
+bin/
 *.exe
 *.dll
 *.so
