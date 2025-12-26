@@ -35,6 +35,7 @@ import (
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
 	"github.com/cloudcwfranck/kspec/controllers"
 	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
+	"github.com/cloudcwfranck/kspec/pkg/webhooks"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -52,12 +53,15 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var enableWebhooks bool
 	var probeAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&enableWebhooks, "enable-webhooks", true,
+		"Enable admission webhooks for real-time validation")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -106,6 +110,22 @@ func main() {
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterSpecification")
 		os.Exit(1)
+	}
+
+	// Setup webhooks
+	if enableWebhooks {
+		setupLog.Info("Setting up webhooks")
+		if err = (&webhooks.PodValidator{
+			Client: mgr.GetClient(),
+		}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
+			// Don't exit - allow operator to run without webhooks
+			setupLog.Info("Webhooks disabled - continuing without real-time validation")
+		} else {
+			setupLog.Info("Webhooks enabled successfully")
+		}
+	} else {
+		setupLog.Info("Webhooks disabled via flag")
 	}
 
 	// +kubebuilder:scaffold:builder
