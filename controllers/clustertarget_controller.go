@@ -29,7 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
+	"github.com/cloudcwfranck/kspec/pkg/audit"
 	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
+	"github.com/cloudcwfranck/kspec/pkg/metrics"
 )
 
 const (
@@ -86,6 +88,7 @@ func (r *ClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 // healthCheck performs a health check on the cluster
 func (r *ClusterTargetReconciler) healthCheck(ctx context.Context, clusterTarget *kspecv1alpha1.ClusterTarget) error {
 	log := log.FromContext(ctx)
+	auditLog := audit.NewLogger(ctx)
 
 	now := metav1.Now()
 	clusterTarget.Status.LastChecked = &now
@@ -117,6 +120,10 @@ func (r *ClusterTargetReconciler) healthCheck(ctx context.Context, clusterTarget
 			r.setCondition(clusterTarget, ConditionTypeCredentialsValid, metav1.ConditionFalse, "InvalidCredentials", err.Error())
 		}
 
+		// Record failed health check metrics
+		metrics.RecordClusterTargetHealth(clusterTarget.Name, clusterTarget.Namespace, false)
+		auditLog.LogHealthCheck(clusterTarget.Name, clusterTarget.Namespace, false, err)
+
 		return fmt.Errorf("cluster unreachable: %w", err)
 	}
 
@@ -143,6 +150,18 @@ func (r *ClusterTargetReconciler) healthCheck(ctx context.Context, clusterTarget
 
 	// Update observed generation
 	clusterTarget.Status.ObservedGeneration = clusterTarget.Generation
+
+	// Record successful health check metrics
+	metrics.RecordClusterTargetHealth(clusterTarget.Name, clusterTarget.Namespace, true)
+	metrics.RecordClusterTargetInfo(
+		clusterTarget.Name,
+		clusterTarget.Namespace,
+		clusterTarget.Status.Platform,
+		clusterTarget.Status.Version,
+		clusterTarget.Spec.APIServerURL,
+		clusterTarget.Status.NodeCount,
+	)
+	auditLog.LogHealthCheck(clusterTarget.Name, clusterTarget.Namespace, true, nil)
 
 	log.Info("Health check successful",
 		"cluster", clusterTarget.Name,

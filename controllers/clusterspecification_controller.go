@@ -32,8 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
+	"github.com/cloudcwfranck/kspec/pkg/audit"
 	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
 	"github.com/cloudcwfranck/kspec/pkg/drift"
+	"github.com/cloudcwfranck/kspec/pkg/metrics"
 	"github.com/cloudcwfranck/kspec/pkg/scanner"
 	"github.com/cloudcwfranck/kspec/pkg/scanner/checks"
 	"github.com/cloudcwfranck/kspec/pkg/spec"
@@ -74,6 +76,14 @@ type ClusterSpecReconciler struct {
 // move the current state of the cluster closer to the desired state.
 func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx).WithValues("clusterspec", req.NamespacedName)
+	auditLog := audit.NewLogger(ctx)
+
+	// Track reconciliation duration
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		metrics.RecordReconcileDuration("clusterspec", req.Name, duration)
+	}()
 
 	// Fetch the ClusterSpecification instance
 	var clusterSpec kspecv1alpha1.ClusterSpecification
@@ -84,8 +94,12 @@ func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Failed to get ClusterSpecification")
+		metrics.RecordReconcileError("clusterspec", req.Name, "get_resource_failed")
 		return ctrl.Result{}, err
 	}
+
+	// Record reconciliation attempt
+	metrics.RecordReconcile("clusterspec", clusterSpec.Name)
 
 	// Handle deletion
 	if !clusterSpec.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -126,17 +140,44 @@ func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Step 1: Run compliance scan using existing pkg/scanner
 	log.Info("Running compliance scan")
+	scanStartTime := time.Now()
 	scanResult, err := r.runComplianceScan(ctx, &clusterSpec, kubeClient)
+	scanDuration := time.Since(scanStartTime).Seconds()
+
+	// Record scan metrics and audit log
 	if err != nil {
 		log.Error(err, "Failed to run compliance scan")
+		auditLog.LogComplianceScan(clusterInfo.Name, clusterInfo.UID, clusterSpec.Name, 0, 0, 0, err)
+		metrics.RecordReconcileError("clusterspec", clusterSpec.Name, "scan_failed")
 		r.updateStatusFailed(ctx, &clusterSpec, err)
 		return ctrl.Result{RequeueAfter: DefaultRequeueAfter}, err
 	}
+
+	// Record successful scan metrics
+	metrics.RecordScanDuration(clusterInfo.Name, clusterSpec.Name, scanDuration)
+	metrics.RecordComplianceMetrics(
+		clusterInfo.Name,
+		clusterInfo.UID,
+		clusterSpec.Name,
+		scanResult.Summary.TotalChecks,
+		scanResult.Summary.Passed,
+		scanResult.Summary.Failed,
+	)
+	auditLog.LogComplianceScan(
+		clusterInfo.Name,
+		clusterInfo.UID,
+		clusterSpec.Name,
+		scanResult.Summary.TotalChecks,
+		scanResult.Summary.Passed,
+		scanResult.Summary.Failed,
+		nil,
+	)
 
 	// Step 2: Create ComplianceReport CR
 	log.Info("Creating ComplianceReport", "passRate", calculatePassRate(scanResult.Summary))
 	if err := r.createComplianceReport(ctx, &clusterSpec, scanResult, clusterInfo); err != nil {
 		log.Error(err, "Failed to create ComplianceReport")
+		auditLog.LogReportGeneration("ComplianceReport", "", clusterInfo.Name, err)
 		// Don't fail reconciliation if report creation fails
 	}
 
@@ -145,23 +186,50 @@ func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	driftReport, err := r.detectDrift(ctx, &clusterSpec, kubeClient, dynamicClient)
 	if err != nil {
 		log.Error(err, "Failed to detect drift")
+		auditLog.LogDriftDetection(clusterInfo.Name, clusterInfo.UID, clusterSpec.Name, false, 0, err)
 		// Continue even if drift detection fails
-	} else if driftReport != nil && driftReport.Drift.Detected {
-		// Step 4: Create DriftReport CR
-		log.Info("Drift detected, creating DriftReport", "events", len(driftReport.Events))
-		if err := r.createDriftReport(ctx, &clusterSpec, driftReport, clusterInfo); err != nil {
-			log.Error(err, "Failed to create DriftReport")
+	} else if driftReport != nil {
+		// Record drift metrics
+		eventCount := len(driftReport.Events)
+		eventsByType := make(map[string]int)
+		for _, event := range driftReport.Events {
+			eventsByType[event.DriftKind]++
 		}
+		metrics.RecordDriftMetrics(
+			clusterInfo.Name,
+			clusterInfo.UID,
+			clusterSpec.Name,
+			driftReport.Drift.Detected,
+			eventCount,
+			eventsByType,
+		)
+		auditLog.LogDriftDetection(
+			clusterInfo.Name,
+			clusterInfo.UID,
+			clusterSpec.Name,
+			driftReport.Drift.Detected,
+			eventCount,
+			nil,
+		)
 
-		// Step 5: Remediate drift (only if allowed by cluster policy)
-		if clusterInfo.AllowEnforcement {
-			log.Info("Remediating drift")
-			if err := r.remediateDrift(ctx, &clusterSpec, driftReport, kubeClient, dynamicClient); err != nil {
-				log.Error(err, "Failed to remediate drift")
-				// Continue even if remediation fails
+		if driftReport.Drift.Detected {
+			// Step 4: Create DriftReport CR
+			log.Info("Drift detected, creating DriftReport", "events", len(driftReport.Events))
+			if err := r.createDriftReport(ctx, &clusterSpec, driftReport, clusterInfo); err != nil {
+				log.Error(err, "Failed to create DriftReport")
+				auditLog.LogReportGeneration("DriftReport", "", clusterInfo.Name, err)
 			}
-		} else {
-			log.Info("Skipping drift remediation (enforcement not allowed on this cluster)")
+
+			// Step 5: Remediate drift (only if allowed by cluster policy)
+			if clusterInfo.AllowEnforcement {
+				log.Info("Remediating drift")
+				if err := r.remediateDrift(ctx, &clusterSpec, driftReport, kubeClient, dynamicClient, clusterInfo, auditLog); err != nil {
+					log.Error(err, "Failed to remediate drift")
+					// Continue even if remediation fails
+				}
+			} else {
+				log.Info("Skipping drift remediation (enforcement not allowed on this cluster)")
+			}
 		}
 	}
 
@@ -275,7 +343,7 @@ func (r *ClusterSpecReconciler) detectDrift(ctx context.Context, clusterSpec *ks
 }
 
 // remediateDrift remediates detected drift
-func (r *ClusterSpecReconciler) remediateDrift(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification, driftReport *drift.DriftReport, kubeClient kubernetes.Interface, dynamicClient dynamic.Interface) error {
+func (r *ClusterSpecReconciler) remediateDrift(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification, driftReport *drift.DriftReport, kubeClient kubernetes.Interface, dynamicClient dynamic.Interface, clusterInfo *clientpkg.ClusterInfo, auditLog *audit.Logger) error {
 	// Convert to spec.ClusterSpecification
 	specToRemediate := &spec.ClusterSpecification{
 		Metadata: spec.Metadata{
@@ -293,8 +361,37 @@ func (r *ClusterSpecReconciler) remediateDrift(ctx context.Context, clusterSpec 
 
 	_, err := drift.RemediateAll(ctx, kubeClient, dynamicClient, specToRemediate, remediateOpts)
 	if err != nil {
+		metrics.RecordRemediationError(clusterInfo.Name, clusterInfo.UID, clusterSpec.Name, "remediation_failed")
 		return fmt.Errorf("drift remediation failed: %w", err)
 	}
+
+	// Record remediation metrics for each event
+	for _, event := range driftReport.Events {
+		if event.Resource.Kind != "" {
+			action := "remediate_" + event.DriftKind
+			metrics.RecordRemediationAction(clusterInfo.Name, clusterInfo.UID, clusterSpec.Name, action)
+			auditLog.LogRemediation(
+				clusterInfo.Name,
+				clusterInfo.UID,
+				clusterSpec.Name,
+				event.Resource.Kind,
+				event.Resource.Name,
+				action,
+				nil,
+			)
+		}
+	}
+
+	// Log summary
+	auditLog.LogRemediation(
+		clusterInfo.Name,
+		clusterInfo.UID,
+		clusterSpec.Name,
+		"drift",
+		"all",
+		"remediate_all",
+		nil,
+	)
 
 	return nil
 }
