@@ -55,14 +55,14 @@ func TestWorkloadSecurityCheck_Pass(t *testing.T) {
 			Workloads: &spec.WorkloadsSpec{
 				Containers: &spec.ContainerSpec{
 					Required: []spec.FieldRequirement{
-						{Key: "securityContext.runAsNonRoot", Value: true},
-						{Key: "securityContext.allowPrivilegeEscalation", Value: false},
+						{Key: "securityContext.runAsNonRoot", Value: "true"},
+						{Key: "securityContext.allowPrivilegeEscalation", Value: "false"},
 						{Key: "resources.limits.memory", Exists: &existsTrue},
 						{Key: "resources.requests.cpu", Exists: &existsTrue},
 					},
 					Forbidden: []spec.FieldRequirement{
-						{Key: "securityContext.privileged", Value: true},
-						{Key: "hostNetwork", Value: true},
+						{Key: "securityContext.privileged", Value: "true"},
+						{Key: "hostNetwork", Value: "true"},
 					},
 				},
 				Images: &spec.ImageSpec{
@@ -104,7 +104,7 @@ func TestWorkloadSecurityCheck_FailMissingSecurityContext(t *testing.T) {
 			Workloads: &spec.WorkloadsSpec{
 				Containers: &spec.ContainerSpec{
 					Required: []spec.FieldRequirement{
-						{Key: "securityContext.runAsNonRoot", Value: true},
+						{Key: "securityContext.runAsNonRoot", Value: "true"},
 					},
 				},
 			},
@@ -147,7 +147,7 @@ func TestWorkloadSecurityCheck_FailPrivilegedContainer(t *testing.T) {
 			Workloads: &spec.WorkloadsSpec{
 				Containers: &spec.ContainerSpec{
 					Forbidden: []spec.FieldRequirement{
-						{Key: "securityContext.privileged", Value: true},
+						{Key: "securityContext.privileged", Value: "true"},
 					},
 				},
 			},
@@ -341,8 +341,8 @@ func TestWorkloadSecurityCheck_FailHostNetwork(t *testing.T) {
 			Workloads: &spec.WorkloadsSpec{
 				Containers: &spec.ContainerSpec{
 					Forbidden: []spec.FieldRequirement{
-						{Key: "hostNetwork", Value: true},
-						{Key: "hostPID", Value: true},
+						{Key: "hostNetwork", Value: "true"},
+						{Key: "hostPID", Value: "true"},
 					},
 				},
 			},
@@ -401,7 +401,7 @@ func TestWorkloadSecurityCheck_SystemNamespacesIgnored(t *testing.T) {
 			Workloads: &spec.WorkloadsSpec{
 				Containers: &spec.ContainerSpec{
 					Required: []spec.FieldRequirement{
-						{Key: "securityContext.runAsNonRoot", Value: true},
+						{Key: "securityContext.runAsNonRoot", Value: "true"},
 					},
 				},
 			},
@@ -445,7 +445,7 @@ func TestWorkloadSecurityCheck_InitContainers(t *testing.T) {
 			Workloads: &spec.WorkloadsSpec{
 				Containers: &spec.ContainerSpec{
 					Required: []spec.FieldRequirement{
-						{Key: "securityContext.runAsNonRoot", Value: true},
+						{Key: "securityContext.runAsNonRoot", Value: "true"},
 					},
 				},
 			},
