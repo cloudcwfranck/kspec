@@ -22,3 +22,8 @@ func LoadFromFile(path string) (*ClusterSpecification, error) {
 
 	return &spec, nil
 }
+
+// MarshalYAML marshals a cluster specification to YAML format.
+func MarshalYAML(spec *ClusterSpecification) ([]byte, error) {
+	return yaml.Marshal(spec)
+}

@@ -31,7 +31,20 @@ kspec is the bridge between compliance frameworks (NIST, CIS) and your Kubernete
 
 ### Installation
 
-#### Binary Releases (Recommended)
+#### Quick Install (Recommended)
+
+**One-line installation:**
+```bash
+curl -sSL https://raw.githubusercontent.com/cloudcwfranck/kspec/main/scripts/install.sh | bash
+```
+
+This automatically:
+- Detects your OS and architecture
+- Downloads the latest version
+- Installs to `/usr/local/bin`
+- Verifies the installation
+
+#### Binary Releases
 
 Download pre-built binaries from the [latest release](https://github.com/cloudcwfranck/kspec/releases/latest):
 
@@ -69,7 +82,61 @@ go build -o kspec ./cmd/kspec
 sudo mv kspec /usr/local/bin/
 ```
 
-### Basic Usage
+### Quick Start (Interactive Setup)
+
+**Option 1: Use the setup wizard** (Easiest - recommended for first-time users)
+```bash
+kspec init
+```
+
+This interactive wizard will:
+- Auto-detect your Kubernetes cluster
+- Ask about your security requirements (Production/Development/Compliance)
+- Generate a tailored cluster specification
+- Optionally enforce security policies immediately
+- Optionally set up drift monitoring
+
+**Example session:**
+```
+🎯 kspec Setup Wizard
+
+📡 Step 1: Detecting Kubernetes cluster...
+   ✓ Connected to cluster (Kubernetes v1.28.0)
+
+📋 Step 2: Configure your cluster specification
+   What's your primary use case?
+   1) Production (Hardened security)
+   2) Development (Permissive)
+   3) Compliance (Strict policies)
+   Choice [1-3] (default: 1): 1
+
+   Security baseline?
+   1) Restricted (High security - recommended)
+   2) Baseline (Moderate security)
+   Choice [1-2] (default: 1): 1
+
+💾 Step 3: Saving specification to cluster-spec.yaml...
+   ✓ Specification saved
+
+🔍 Step 4: Scanning cluster for compliance...
+   ✓ Scan complete: 8/14 checks passed
+   ⚠ 6 issues found - review your cluster configuration
+
+🛡️  Step 5: Policy Enforcement
+   Would you like to enforce security policies now? [Y/n]: y
+   ✓ Enforced 12 security policies
+
+🔄 Step 6: Drift Monitoring
+   Would you like to set up automatic drift monitoring? [y/N]: y
+
+✅ Setup Complete!
+
+🎉 Your cluster is now configured with kspec!
+```
+
+### Manual Usage
+
+**Option 2: Manual configuration** (For advanced users)
 
 1. **Create a cluster specification**
 
