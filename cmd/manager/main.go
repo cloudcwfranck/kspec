@@ -36,6 +36,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
+	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
 	"github.com/cloudcwfranck/kspec/controllers"
 	// +kubebuilder:scaffold:imports
 )
@@ -87,6 +88,20 @@ func main() {
 	kubeClient, dynamicClient, err := createKubernetesClients(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create kubernetes clients")
+		os.Exit(1)
+	}
+
+	// Create Client Factory for multi-cluster support
+	clientFactory := clientpkg.NewClusterClientFactory(config, mgr.GetClient())
+
+	// Setup ClusterTarget controller
+	if err = controllers.NewClusterTargetReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		config,
+		clientFactory,
+	).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClusterTarget")
 		os.Exit(1)
 	}
 
