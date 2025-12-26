@@ -44,8 +44,8 @@ func TestClusterSpecCreation(t *testing.T) {
 		// Verify it was created
 		var retrieved kspecv1alpha1.ClusterSpecification
 		if err := fw.Client.Get(ctx, client.ObjectKey{
-			Name:      cs.Name,
-			Namespace: cs.Namespace,
+			Name: cs.Name,
+			// ClusterSpecification is cluster-scoped, no namespace
 		}, &retrieved); err != nil {
 			t.Fatalf("Failed to retrieve ClusterSpec: %v", err)
 		}
@@ -84,7 +84,7 @@ func TestClusterSpecCreation(t *testing.T) {
 		}
 
 		// Wait for status to be updated
-		err = fw.WaitForClusterSpecReady(ctx, cs.Name, cs.Namespace, 30*time.Second)
+		err = fw.WaitForClusterSpecReady(ctx, cs.Name, "", 30*time.Second)
 		if err != nil {
 			t.Fatalf("ClusterSpec did not become ready: %v", err)
 		}
@@ -93,7 +93,6 @@ func TestClusterSpecCreation(t *testing.T) {
 		var updated kspecv1alpha1.ClusterSpecification
 		if err := fw.Client.Get(ctx, client.ObjectKey{
 			Name:      cs.Name,
-			Namespace: cs.Namespace,
 		}, &updated); err != nil {
 			t.Fatalf("Failed to retrieve updated ClusterSpec: %v", err)
 		}
@@ -113,7 +112,7 @@ func TestClusterSpecWithClusterRef(t *testing.T) {
 	t.Run("should handle ClusterRef to non-existent cluster", func(t *testing.T) {
 		cs := &kspecv1alpha1.ClusterSpecification{}
 		cs.Name = "test-remote-spec"
-		cs.Namespace = "default"
+		// ClusterSpecification is cluster-scoped, no namespace
 		cs.Spec.Kubernetes.MinVersion = "1.28.0"
 		cs.Spec.ClusterRef = &kspecv1alpha1.ClusterReference{
 			Name:      "non-existent-cluster",
@@ -131,7 +130,6 @@ func TestClusterSpecWithClusterRef(t *testing.T) {
 		var updated kspecv1alpha1.ClusterSpecification
 		if err := fw.Client.Get(ctx, client.ObjectKey{
 			Name:      cs.Name,
-			Namespace: cs.Namespace,
 		}, &updated); err != nil {
 			t.Fatalf("Failed to retrieve ClusterSpec: %v", err)
 		}
@@ -151,7 +149,7 @@ func TestClusterSpecWithClusterRef(t *testing.T) {
 		// Create ClusterSpec referencing it
 		cs := &kspecv1alpha1.ClusterSpecification{}
 		cs.Name = "test-remote-valid"
-		cs.Namespace = "default"
+		// ClusterSpecification is cluster-scoped, no namespace
 		cs.Spec.Kubernetes.MinVersion = "1.28.0"
 		cs.Spec.ClusterRef = &kspecv1alpha1.ClusterReference{
 			Name:      ct.Name,
@@ -168,7 +166,6 @@ func TestClusterSpecWithClusterRef(t *testing.T) {
 		var updated kspecv1alpha1.ClusterSpecification
 		if err := fw.Client.Get(ctx, client.ObjectKey{
 			Name:      cs.Name,
-			Namespace: cs.Namespace,
 		}, &updated); err != nil {
 			t.Fatalf("Failed to retrieve ClusterSpec: %v", err)
 		}
@@ -209,7 +206,6 @@ func TestClusterSpecDeletion(t *testing.T) {
 		var deleted kspecv1alpha1.ClusterSpecification
 		err = fw.Client.Get(ctx, client.ObjectKey{
 			Name:      cs.Name,
-			Namespace: cs.Namespace,
 		}, &deleted)
 
 		if err == nil {
