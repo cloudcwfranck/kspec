@@ -130,13 +130,62 @@ jobs:
           # Verify CRDs installed
           kubectl get crd | grep kspec.io
 
-      - name: Deploy operator to kind cluster
+      - name: Create kspec-system namespace
         run: |
-          # Create namespace
+          # Create the namespace for operator and reports
           kubectl create namespace kspec-system
 
-          # Deploy operator
-          kubectl apply -f config/rbac/ || true
+          # Verify namespace exists
+          kubectl get namespace kspec-system
+          echo "✅ kspec-system namespace created"
+
+      - name: Deploy operator RBAC
+        run: |
+          # Create service account and RBAC in kspec-system namespace
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: kspec-operator
+            namespace: kspec-system
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: kspec-operator
+          rules:
+          - apiGroups: [""]
+            resources: ["namespaces", "pods", "services", "configmaps", "secrets"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["apps"]
+            resources: ["deployments", "statefulsets", "daemonsets"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["kspec.io"]
+            resources: ["clusterspecifications", "clustertargets", "compliancereports", "driftreports"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: ["kspec.io"]
+            resources: ["clusterspecifications/status", "clustertargets/status", "compliancereports/status", "driftreports/status"]
+            verbs: ["get", "update", "patch"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: kspec-operator
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: kspec-operator
+          subjects:
+          - kind: ServiceAccount
+            name: kspec-operator
+            namespace: kspec-system
+          EOF
+
+          echo "✅ RBAC configured"
+
+      - name: Deploy operator to kind cluster
+        run: |
+          # Deploy operator deployment
           kubectl apply -f - <<EOF
           apiVersion: apps/v1
           kind: Deployment
@@ -171,6 +220,8 @@ jobs:
                       cpu: 500m
                       memory: 512Mi
           EOF
+
+          echo "✅ Operator deployment created"
 
       - name: Wait for operator to be ready
         run: |
