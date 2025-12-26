@@ -62,3 +62,40 @@ mod-tidy:
 validate:
 	@echo "Validating example specs..."
 	./$(BINARY_NAME) validate --spec specs/examples/minimal.yaml
+
+## build-operator: Build the operator binary
+build-operator:
+	@echo "Building operator..."
+	CGO_ENABLED=0 $(GO) build -o bin/manager ./cmd/manager
+	@echo "Built: ./bin/manager"
+
+## build-dashboard: Build the web dashboard binary
+build-dashboard:
+	@echo "Building web dashboard..."
+	CGO_ENABLED=0 $(GO) build -o bin/web-dashboard ./cmd/web-dashboard
+	@echo "Built: ./bin/web-dashboard"
+
+## docker-operator: Build operator Docker image
+docker-operator:
+	@echo "Building operator Docker image..."
+	docker build -t kspec-operator:latest .
+	@echo "Built: kspec-operator:latest"
+
+## docker-dashboard: Build dashboard Docker image
+docker-dashboard:
+	@echo "Building dashboard Docker image..."
+	docker build -f Dockerfile.dashboard -t kspec-dashboard:latest .
+	@echo "Built: kspec-dashboard:latest"
+
+## deploy-dashboard: Deploy web dashboard to cluster (GitOps-friendly)
+deploy-dashboard:
+	@echo "Deploying web dashboard..."
+	kubectl apply -f config/dashboard/deployment.yaml
+	@echo "Dashboard deployed! Access with:"
+	@echo "  kubectl port-forward -n kspec-system svc/kspec-dashboard 8000:80"
+	@echo "  Then open http://localhost:8000"
+
+## quick-start: Run quick start installation script
+quick-start:
+	@echo "Running quick start..."
+	./hack/quick-start.sh

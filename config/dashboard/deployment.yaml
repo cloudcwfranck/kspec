@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kspec-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kspec-dashboard
+  namespace: kspec-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kspec-dashboard
+rules:
+- apiGroups: ["kspec.io"]
+  resources: ["clusterspecifications", "compliancereports", "driftreports", "clustertargets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kspec-dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kspec-dashboard
+subjects:
+- kind: ServiceAccount
+  name: kspec-dashboard
+  namespace: kspec-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kspec-dashboard
+  namespace: kspec-system
+  labels:
+    app: kspec-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kspec-dashboard
+  template:
+    metadata:
+      labels:
+        app: kspec-dashboard
+    spec:
+      serviceAccountName: kspec-dashboard
+      containers:
+      - name: dashboard
+        image: kspec-dashboard:latest  # Replace with your image
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: PORT
+          value: "8000"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kspec-dashboard
+  namespace: kspec-system
+  labels:
+    app: kspec-dashboard
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: kspec-dashboard
+---
+# Optional: Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kspec-dashboard
+  namespace: kspec-system
+  annotations:
+    # Uncomment based on your ingress controller:
+    # nginx.ingress.kubernetes.io/rewrite-target: /
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx  # Change to your ingress class
+  rules:
+  - host: kspec.example.com  # Change to your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kspec-dashboard
+            port:
+              number: 80
+  # tls:
+  # - hosts:
+  #   - kspec.example.com
+  #   secretName: kspec-dashboard-tls
