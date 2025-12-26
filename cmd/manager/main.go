@@ -36,8 +36,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
-	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
 	"github.com/cloudcwfranck/kspec/controllers"
+	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
 	// +kubebuilder:scaffold:imports
 )
 
