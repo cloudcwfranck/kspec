@@ -50,11 +50,11 @@ func (g *Generator) generateWorkloadPolicies(workloadsSpec *spec.WorkloadsSpec) 
 
 	// Check for runAsNonRoot requirement
 	for _, req := range workloadsSpec.Containers.Required {
-		if req.Key == "securityContext.runAsNonRoot" && req.Value == true {
+		if req.Key == "securityContext.runAsNonRoot" && req.Value == "true" {
 			policy := g.createRunAsNonRootPolicy()
 			policies = append(policies, policy)
 		}
-		if req.Key == "securityContext.allowPrivilegeEscalation" && req.Value == false {
+		if req.Key == "securityContext.allowPrivilegeEscalation" && req.Value == "false" {
 			policy := g.createDisallowPrivilegeEscalationPolicy()
 			policies = append(policies, policy)
 		}
@@ -66,11 +66,11 @@ func (g *Generator) generateWorkloadPolicies(workloadsSpec *spec.WorkloadsSpec) 
 
 	// Check for forbidden fields
 	for _, forbidden := range workloadsSpec.Containers.Forbidden {
-		if forbidden.Key == "securityContext.privileged" && forbidden.Value == true {
+		if forbidden.Key == "securityContext.privileged" && forbidden.Value == "true" {
 			policy := g.createDisallowPrivilegedPolicy()
 			policies = append(policies, policy)
 		}
-		if forbidden.Key == "hostNetwork" && forbidden.Value == true {
+		if forbidden.Key == "hostNetwork" && forbidden.Value == "true" {
 			policy := g.createDisallowHostNamespacesPolicy()
 			policies = append(policies, policy)
 		}
