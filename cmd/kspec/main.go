@@ -47,6 +47,7 @@ enforces security policies, and generates compliance evidence for audits.`,
 	rootCmd.AddCommand(newEnforceCmd())
 	rootCmd.AddCommand(driftCommand())
 	rootCmd.AddCommand(initCommand())
+	rootCmd.AddCommand(clusterCmd)
 
 	return rootCmd
 }
