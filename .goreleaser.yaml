@@ -152,13 +152,6 @@ release:
 
     **Full Changelog**: https://github.com/cloudcwfranck/kspec/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-# Kubernetes manifests for kspec installation
-kustomize:
-  - ids:
-      - kspec-archive
-    paths:
-      - deploy/manifests
-
 # Docker images (future - when we have a container)
 # dockers:
 #   - ids:
