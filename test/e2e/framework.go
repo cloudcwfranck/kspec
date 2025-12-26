@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -102,6 +103,14 @@ func NewTestFramework(t *testing.T) *TestFramework {
 	if err := setupControllers(mgr, cfg, clientFactory); err != nil {
 		testEnv.Stop()
 		t.Fatalf("Failed to setup controllers: %v", err)
+	}
+
+	// Create kspec-system namespace for namespaced resources like ComplianceReport
+	kspecNamespace := &corev1.Namespace{}
+	kspecNamespace.Name = "kspec-system"
+	if err := k8sClient.Create(context.Background(), kspecNamespace); err != nil {
+		testEnv.Stop()
+		t.Fatalf("Failed to create kspec-system namespace: %v", err)
 	}
 
 	// Start manager
