@@ -415,7 +415,7 @@ const dashboardHTML = `<!DOCTYPE html>
             else if (compliancePercent >= 80) complianceClass = 'compliance-medium';
 
             const html = ` +
-		`<div class="card">
+	`<div class="card">
                     <h3>Overall Compliance</h3>
                     <div class="value ${complianceClass}">${compliancePercent}%</div>
                     <div class="subvalue">${data.PassedChecks}/${data.TotalChecks} checks passed</div>
