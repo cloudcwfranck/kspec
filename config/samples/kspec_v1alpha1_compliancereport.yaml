@@ -1,0 +1,39 @@
+apiVersion: kspec.io/v1alpha1
+kind: ComplianceReport
+metadata:
+  name: production-cluster-20250126
+  namespace: kspec-system
+  labels:
+    kspec.io/cluster-spec: production-cluster
+    kspec.io/report-type: compliance
+spec:
+  clusterSpecRef:
+    name: production-cluster
+    version: "1.0.0"
+
+  scanTime: "2025-01-26T10:30:00Z"
+
+  summary:
+    total: 48
+    passed: 45
+    failed: 3
+    passRate: 94
+
+  results:
+    - name: kubernetes-version
+      category: kubernetes
+      status: Pass
+      severity: High
+      message: "Kubernetes version 1.28.0 is within allowed range"
+
+    - name: pod-security-standards
+      category: podSecurity
+      status: Pass
+      severity: Critical
+      message: "Pod Security Standards enforced: restricted"
+
+    - name: network-policies
+      category: network
+      status: Fail
+      severity: High
+      message: "3 namespaces missing NetworkPolicies: dev, staging, test"

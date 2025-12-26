@@ -1,0 +1,40 @@
+apiVersion: kspec.io/v1alpha1
+kind: DriftReport
+metadata:
+  name: production-cluster-drift-20250126
+  namespace: kspec-system
+  labels:
+    kspec.io/cluster-spec: production-cluster
+    kspec.io/severity: high
+spec:
+  clusterSpecRef:
+    name: production-cluster
+
+  detectionTime: "2025-01-26T10:35:00Z"
+  driftDetected: true
+  severity: high
+
+  events:
+    - type: Policy
+      severity: high
+      resource:
+        kind: ClusterPolicy
+        name: require-run-as-non-root
+      driftType: deleted
+      message: "Policy was manually deleted"
+      remediation:
+        action: create
+        status: success
+        appliedAt: "2025-01-26T10:35:05Z"
+
+    - type: Policy
+      severity: medium
+      resource:
+        kind: ClusterPolicy
+        name: disallow-privileged
+      driftType: modified
+      message: "ValidationFailureAction changed from Enforce to Audit"
+      remediation:
+        action: update
+        status: success
+        appliedAt: "2025-01-26T10:35:06Z"

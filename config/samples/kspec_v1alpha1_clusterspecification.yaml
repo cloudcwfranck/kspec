@@ -1,0 +1,47 @@
+apiVersion: kspec.io/v1alpha1
+kind: ClusterSpecification
+metadata:
+  name: production-cluster
+spec:
+  kubernetes:
+    minVersion: "1.27.0"
+    maxVersion: "1.30.0"
+
+  podSecurity:
+    enforce: restricted
+    audit: restricted
+    warn: restricted
+
+  network:
+    requireNetworkPolicies: true
+    defaultDenyIngress: true
+    defaultDenyEgress: false
+
+  workloads:
+    containers:
+      required:
+        - key: securityContext.runAsNonRoot
+          value: true
+        - key: securityContext.allowPrivilegeEscalation
+          value: false
+    images:
+      requireDigests: true
+      allowedRegistries:
+        - "gcr.io/*"
+        - "*.ecr.amazonaws.com"
+
+  rbac:
+    disallowDefaultServiceAccountTokens: true
+    disallowClusterAdminBindings: true
+
+  admission:
+    requireKyverno: true
+    requirePolicyReports: true
+
+  observability:
+    requirePrometheusMonitoring: true
+
+  compliance:
+    frameworks:
+      - cis-k8s-1.8
+      - pci-dss-4.0

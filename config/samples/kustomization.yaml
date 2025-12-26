@@ -1,0 +1,5 @@
+# Kustomization for sample CRs
+resources:
+  - kspec_v1alpha1_clusterspecification.yaml
+  - kspec_v1alpha1_compliancereport.yaml
+  - kspec_v1alpha1_driftreport.yaml
