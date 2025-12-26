@@ -84,6 +84,7 @@ spec:
                   properties:
                     actual:
                       description: Actual state
+                      type: object
                       x-kubernetes-preserve-unknown-fields: true
                     check:
                       description: Check name for compliance drift
@@ -97,6 +98,7 @@ spec:
                       type: string
                     expected:
                       description: Expected state
+                      type: object
                       x-kubernetes-preserve-unknown-fields: true
                     message:
                       description: Message describes the drift

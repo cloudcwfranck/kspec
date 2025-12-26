@@ -80,6 +80,7 @@ spec:
                     details:
                       description: Details provides additional context about the check
                         result
+                      type: object
                       x-kubernetes-preserve-unknown-fields: true
                     message:
                       description: Message describing the check result

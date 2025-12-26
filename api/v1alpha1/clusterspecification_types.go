@@ -8,8 +8,6 @@ import (
 // ClusterSpecificationSpec defines the desired state of ClusterSpecification
 // This reuses the existing SpecFields from pkg/spec/schema.go
 type ClusterSpecificationSpec struct {
-	// Spec contains the cluster security and compliance requirements
-	// +kubebuilder:validation:Required
 	spec.SpecFields `json:",inline"`
 }
 

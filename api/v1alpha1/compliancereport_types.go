@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 // ComplianceReportSpec defines the desired state of ComplianceReport
@@ -81,7 +82,7 @@ type CheckResult struct {
 	// Details provides additional context about the check result
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Details map[string]interface{} `json:"details,omitempty"`
+	Details *runtime.RawExtension `json:"details,omitempty"`
 }
 
 // ComplianceReportStatus defines the observed state of ComplianceReport

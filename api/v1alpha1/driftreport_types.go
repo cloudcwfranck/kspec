@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 // DriftReportSpec defines the desired state of DriftReport
@@ -60,12 +61,12 @@ type DriftEvent struct {
 	// Expected state
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Expected map[string]interface{} `json:"expected,omitempty"`
+	Expected *runtime.RawExtension `json:"expected,omitempty"`
 
 	// Actual state
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Actual map[string]interface{} `json:"actual,omitempty"`
+	Actual *runtime.RawExtension `json:"actual,omitempty"`
 
 	// Remediation describes the remediation action taken
 	// +optional
