@@ -1,0 +1,167 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: compliancereports.kspec.io
+spec:
+  group: kspec.io
+  names:
+    kind: ComplianceReport
+    listKind: ComplianceReportList
+    plural: compliancereports
+    shortNames:
+    - cr
+    singular: compliancereport
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.clusterSpecRef.name
+      name: Cluster Spec
+      type: string
+    - jsonPath: .spec.summary.passRate
+      name: Pass Rate
+      type: integer
+    - jsonPath: .spec.scanTime
+      name: Scan Time
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ComplianceReport is the Schema for the compliancereports API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ComplianceReportSpec defines the desired state of ComplianceReport
+            properties:
+              clusterSpecRef:
+                description: ClusterSpecRef references the ClusterSpecification this
+                  report is for
+                properties:
+                  name:
+                    description: Name of the referenced object
+                    type: string
+                  version:
+                    description: Version of the specification
+                    type: string
+                required:
+                - name
+                type: object
+              results:
+                description: Results contains the detailed compliance check results
+                items:
+                  description: CheckResult represents the result of a single compliance
+                    check
+                  properties:
+                    category:
+                      description: Category of the check (e.g., kubernetes, podSecurity,
+                        network)
+                      type: string
+                    details:
+                      description: Details provides additional context about the check
+                        result
+                      x-kubernetes-preserve-unknown-fields: true
+                    message:
+                      description: Message describing the check result
+                      type: string
+                    name:
+                      description: Name of the check
+                      type: string
+                    severity:
+                      description: Severity of the check
+                      enum:
+                      - Low
+                      - Medium
+                      - High
+                      - Critical
+                      type: string
+                    status:
+                      description: Status of the check
+                      enum:
+                      - Pass
+                      - Fail
+                      - Error
+                      type: string
+                  required:
+                  - category
+                  - name
+                  - severity
+                  - status
+                  type: object
+                type: array
+              scanTime:
+                description: ScanTime is when this compliance scan was performed
+                format: date-time
+                type: string
+              summary:
+                description: Summary provides an overview of the compliance results
+                properties:
+                  failed:
+                    description: Number of checks that failed
+                    minimum: 0
+                    type: integer
+                  passRate:
+                    description: Overall pass rate percentage (0-100)
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                  passed:
+                    description: Number of checks that passed
+                    minimum: 0
+                    type: integer
+                  total:
+                    description: Total number of checks performed
+                    minimum: 0
+                    type: integer
+                required:
+                - failed
+                - passRate
+                - passed
+                - total
+                type: object
+            required:
+            - clusterSpecRef
+            - scanTime
+            - summary
+            type: object
+          status:
+            description: ComplianceReportStatus defines the observed state of ComplianceReport
+            properties:
+              phase:
+                default: Pending
+                description: Phase represents the current phase of the report
+                enum:
+                - Pending
+                - Completed
+                - Failed
+                type: string
+              reportURL:
+                description: ReportURL is the URL where the full report can be accessed
+                  (for Phase 8 control plane)
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
