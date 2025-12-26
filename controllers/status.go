@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -39,7 +38,7 @@ func (r *ClusterSpecReconciler) updateStatus(
 	// Update phase
 	if calculatePassRate(scanResult.Summary) >= 95 {
 		clusterSpec.Status.Phase = "Active"
-	} else if scanResult.Summary.FailedCount > 0 {
+	} else if scanResult.Summary.Failed > 0 {
 		clusterSpec.Status.Phase = "Active" // Still active, but with failures
 	}
 

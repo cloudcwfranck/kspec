@@ -23,9 +23,8 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
@@ -50,11 +49,11 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 	for i, result := range scanResult.Results {
 		results[i] = kspecv1alpha1.CheckResult{
 			Name:     result.Name,
-			Category: result.Category,
+			Category: inferCategory(result.Name),
 			Status:   string(result.Status),
 			Severity: string(result.Severity),
 			Message:  result.Message,
-			Details:  nil, // TODO: Convert details to runtime.RawExtension
+			Details:  nil, // TODO: Convert evidence to runtime.RawExtension
 		}
 	}
 
@@ -117,7 +116,7 @@ func (r *ClusterSpecReconciler) createDriftReport(
 	events := make([]kspecv1alpha1.DriftEvent, len(driftReport.Events))
 	for i, event := range driftReport.Events {
 		var resourceRef *kspecv1alpha1.ResourceReference
-		if event.Resource != nil {
+		if event.Resource.Kind != "" {
 			resourceRef = &kspecv1alpha1.ResourceReference{
 				Kind:      event.Resource.Kind,
 				Name:      event.Resource.Name,
@@ -128,8 +127,8 @@ func (r *ClusterSpecReconciler) createDriftReport(
 		var remediation *kspecv1alpha1.RemediationAction
 		if event.Remediation != nil {
 			var appliedAt *metav1.Time
-			if !event.Remediation.AppliedAt.IsZero() {
-				appliedAt = &metav1.Time{Time: event.Remediation.AppliedAt}
+			if !event.Remediation.Timestamp.IsZero() {
+				appliedAt = &metav1.Time{Time: event.Remediation.Timestamp}
 			}
 
 			remediation = &kspecv1alpha1.RemediationAction{
@@ -144,8 +143,8 @@ func (r *ClusterSpecReconciler) createDriftReport(
 			Type:        string(event.Type),
 			Severity:    string(event.Severity),
 			Resource:    resourceRef,
-			DriftType:   string(event.DriftType),
-			Check:       event.Check,
+			DriftType:   event.DriftKind,
+			Check:       "", // drift.DriftEvent has no Check field
 			Message:     event.Message,
 			Expected:    nil, // TODO: Convert to runtime.RawExtension
 			Actual:      nil, // TODO: Convert to runtime.RawExtension
@@ -297,4 +296,23 @@ func countPendingEvents(events []kspecv1alpha1.DriftEvent) int {
 		}
 	}
 	return count
+}
+
+// inferCategory infers the check category from the check name
+func inferCategory(checkName string) string {
+	// Check names follow the pattern "category.subcategory" (e.g., "kubernetes.version")
+	// Extract the first part as the category
+	if len(checkName) == 0 {
+		return "unknown"
+	}
+
+	// Find the first dot
+	for i, c := range checkName {
+		if c == '.' {
+			return checkName[:i]
+		}
+	}
+
+	// No dot found, return the whole name
+	return checkName
 }
