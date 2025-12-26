@@ -218,20 +218,12 @@ func (v *PodValidator) validateContainerRequirement(pod *corev1.Pod, req spec.Fi
 				return fmt.Errorf("container %d (%s) must set securityContext.allowPrivilegeEscalation",
 					i, container.Name)
 			}
-			// If a value is specified, check if it matches "false" or false
-			if req.Value != nil {
-				expectedFalse := false
-				switch v := req.Value.(type) {
-				case string:
-					expectedFalse = v == "false"
-				case bool:
-					expectedFalse = !v
-				}
-
+			// If a value is specified, check if it matches "false"
+			if req.Value != "" && req.Value == "false" {
 				actualValue := container.SecurityContext.AllowPrivilegeEscalation != nil &&
 					!*container.SecurityContext.AllowPrivilegeEscalation
 
-				if expectedFalse && !actualValue {
+				if !actualValue {
 					return fmt.Errorf("container %d (%s) must have securityContext.allowPrivilegeEscalation=false",
 						i, container.Name)
 				}

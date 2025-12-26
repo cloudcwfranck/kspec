@@ -79,9 +79,9 @@ type ContainerSpec struct {
 
 // FieldRequirement defines a required or forbidden field.
 type FieldRequirement struct {
-	Key    string      `yaml:"key" json:"key"`
-	Value  interface{} `yaml:"value,omitempty" json:"value,omitempty"`
-	Exists *bool       `yaml:"exists,omitempty" json:"exists,omitempty"`
+	Key    string `yaml:"key" json:"key"`
+	Value  string `yaml:"value,omitempty" json:"value,omitempty"`
+	Exists *bool  `yaml:"exists,omitempty" json:"exists,omitempty"`
 }
 
 // ImageSpec defines image security requirements.
