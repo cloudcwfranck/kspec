@@ -8,7 +8,24 @@ import (
 // ClusterSpecificationSpec defines the desired state of ClusterSpecification
 // This reuses the existing SpecFields from pkg/spec/schema.go
 type ClusterSpecificationSpec struct {
+	// ClusterRef is an optional reference to a ClusterTarget defining a remote cluster
+	// If not specified, the operator will scan the local cluster (backwards compatible)
+	// +optional
+	ClusterRef *ClusterReference `json:"clusterRef,omitempty"`
+
 	spec.SpecFields `json:",inline"`
+}
+
+// ClusterReference references a ClusterTarget resource
+type ClusterReference struct {
+	// Name is the name of the ClusterTarget resource
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Namespace is the namespace of the ClusterTarget resource
+	// If not specified, uses the same namespace as the ClusterSpecification
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // ClusterSpecificationStatus defines the observed state of ClusterSpecification

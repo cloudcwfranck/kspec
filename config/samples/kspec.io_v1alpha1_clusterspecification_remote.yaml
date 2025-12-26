@@ -1,0 +1,61 @@
+apiVersion: kspec.io/v1alpha1
+kind: ClusterSpecification
+metadata:
+  name: prod-security-baseline
+spec:
+  # NEW: Reference to a remote cluster defined by ClusterTarget
+  # If not specified, the operator scans the local cluster (backwards compatible)
+  clusterRef:
+    name: prod-us-east-1
+    namespace: kspec-system
+
+  # Standard kspec specification follows
+  # (These fields are the same as single-cluster mode)
+
+  kubernetes:
+    minVersion: "1.27.0"
+    maxVersion: "1.29.0"
+
+  podSecurity:
+    enforce: restricted
+    audit: restricted
+    warn: restricted
+    exemptions:
+      namespaces:
+        - kube-system
+        - kspec-system
+
+  network:
+    defaultDeny: true
+    egressControl: true
+    allowedExternalCIDRs:
+      - 0.0.0.0/0  # Allow all for now
+
+  workloads:
+    containers:
+      required:
+        - key: securityContext.runAsNonRoot
+          value: true
+          exists: true
+        - key: securityContext.allowPrivilegeEscalation
+          value: false
+          exists: true
+      forbidden:
+        - key: securityContext.privileged
+          value: true
+
+  admission:
+    required:
+      - type: kyverno
+        namePattern: ".*"
+        minCount: 1
+
+  compliance:
+    frameworks:
+      - name: NIST-800-53
+        revision: rev5
+        controls:
+          - id: AC-1
+            checks:
+              - kubernetes.rbac.enabled
+              - podSecurity.restricted

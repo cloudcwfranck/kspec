@@ -11,6 +11,16 @@ type ComplianceReportSpec struct {
 	// +kubebuilder:validation:Required
 	ClusterSpecRef ObjectReference `json:"clusterSpecRef"`
 
+	// ClusterName is the name of the cluster that was scanned
+	// For local clusters this is "local", for remote clusters it's the ClusterTarget name
+	// +kubebuilder:validation:Required
+	ClusterName string `json:"clusterName"`
+
+	// ClusterUID is the unique identifier of the cluster
+	// This helps distinguish reports across different clusters
+	// +optional
+	ClusterUID string `json:"clusterUID,omitempty"`
+
 	// ScanTime is when this compliance scan was performed
 	// +kubebuilder:validation:Required
 	ScanTime metav1.Time `json:"scanTime"`
@@ -100,6 +110,7 @@ type ComplianceReportStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=cr
+// +kubebuilder:printcolumn:name="Cluster",type=string,JSONPath=`.spec.clusterName`
 // +kubebuilder:printcolumn:name="Cluster Spec",type=string,JSONPath=`.spec.clusterSpecRef.name`
 // +kubebuilder:printcolumn:name="Pass Rate",type=integer,JSONPath=`.spec.summary.passRate`
 // +kubebuilder:printcolumn:name="Scan Time",type=date,JSONPath=`.spec.scanTime`
