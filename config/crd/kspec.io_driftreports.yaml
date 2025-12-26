@@ -17,6 +17,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.clusterName
+      name: Cluster
+      type: string
     - jsonPath: .spec.clusterSpecRef.name
       name: Cluster Spec
       type: string
@@ -57,6 +60,11 @@ spec:
           spec:
             description: DriftReportSpec defines the desired state of DriftReport
             properties:
+              clusterName:
+                description: |-
+                  ClusterName is the name of the cluster that was scanned
+                  For local clusters this is "local", for remote clusters it's the ClusterTarget name
+                type: string
               clusterSpecRef:
                 description: ClusterSpecRef references the ClusterSpecification this
                   report is for
@@ -70,6 +78,11 @@ spec:
                 required:
                 - name
                 type: object
+              clusterUID:
+                description: |-
+                  ClusterUID is the unique identifier of the cluster
+                  This helps distinguish reports across different clusters
+                type: string
               detectionTime:
                 description: DetectionTime is when drift was detected
                 format: date-time
@@ -178,6 +191,7 @@ spec:
                 - critical
                 type: string
             required:
+            - clusterName
             - clusterSpecRef
             - detectionTime
             - driftDetected

@@ -100,6 +100,22 @@ spec:
                       type: object
                     type: array
                 type: object
+              clusterRef:
+                description: |-
+                  ClusterRef is an optional reference to a ClusterTarget defining a remote cluster
+                  If not specified, the operator will scan the local cluster (backwards compatible)
+                properties:
+                  name:
+                    description: Name is the name of the ClusterTarget resource
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace is the namespace of the ClusterTarget resource
+                      If not specified, uses the same namespace as the ClusterSpecification
+                    type: string
+                required:
+                - name
+                type: object
               compliance:
                 description: ComplianceSpec defines compliance framework mappings.
                 properties:

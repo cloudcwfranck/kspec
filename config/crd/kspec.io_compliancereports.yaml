@@ -17,6 +17,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.clusterName
+      name: Cluster
+      type: string
     - jsonPath: .spec.clusterSpecRef.name
       name: Cluster Spec
       type: string
@@ -54,6 +57,11 @@ spec:
           spec:
             description: ComplianceReportSpec defines the desired state of ComplianceReport
             properties:
+              clusterName:
+                description: |-
+                  ClusterName is the name of the cluster that was scanned
+                  For local clusters this is "local", for remote clusters it's the ClusterTarget name
+                type: string
               clusterSpecRef:
                 description: ClusterSpecRef references the ClusterSpecification this
                   report is for
@@ -67,6 +75,11 @@ spec:
                 required:
                 - name
                 type: object
+              clusterUID:
+                description: |-
+                  ClusterUID is the unique identifier of the cluster
+                  This helps distinguish reports across different clusters
+                type: string
               results:
                 description: Results contains the detailed compliance check results
                 items:
@@ -141,6 +154,7 @@ spec:
                 - total
                 type: object
             required:
+            - clusterName
             - clusterSpecRef
             - scanTime
             - summary

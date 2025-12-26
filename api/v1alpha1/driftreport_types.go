@@ -11,6 +11,16 @@ type DriftReportSpec struct {
 	// +kubebuilder:validation:Required
 	ClusterSpecRef ObjectReference `json:"clusterSpecRef"`
 
+	// ClusterName is the name of the cluster that was scanned
+	// For local clusters this is "local", for remote clusters it's the ClusterTarget name
+	// +kubebuilder:validation:Required
+	ClusterName string `json:"clusterName"`
+
+	// ClusterUID is the unique identifier of the cluster
+	// This helps distinguish reports across different clusters
+	// +optional
+	ClusterUID string `json:"clusterUID,omitempty"`
+
 	// DetectionTime is when drift was detected
 	// +kubebuilder:validation:Required
 	DetectionTime metav1.Time `json:"detectionTime"`
@@ -135,6 +145,7 @@ type DriftReportStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=dr
+// +kubebuilder:printcolumn:name="Cluster",type=string,JSONPath=`.spec.clusterName`
 // +kubebuilder:printcolumn:name="Cluster Spec",type=string,JSONPath=`.spec.clusterSpecRef.name`
 // +kubebuilder:printcolumn:name="Drift",type=boolean,JSONPath=`.spec.driftDetected`
 // +kubebuilder:printcolumn:name="Severity",type=string,JSONPath=`.spec.severity`
