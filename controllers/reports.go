@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
+	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
 	"github.com/cloudcwfranck/kspec/pkg/drift"
 	"github.com/cloudcwfranck/kspec/pkg/scanner"
 )
@@ -37,12 +38,13 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 	ctx context.Context,
 	clusterSpec *kspecv1alpha1.ClusterSpecification,
 	scanResult *scanner.ScanResult,
+	clusterInfo *clientpkg.ClusterInfo,
 ) error {
 	log := log.FromContext(ctx)
 
-	// Generate report name with timestamp
+	// Generate report name with timestamp and cluster name
 	timestamp := time.Now().UTC().Format("20060102-150405")
-	reportName := fmt.Sprintf("%s-%s", clusterSpec.Name, timestamp)
+	reportName := fmt.Sprintf("%s-%s-%s", clusterInfo.Name, clusterSpec.Name, timestamp)
 
 	// Convert scanner.CheckResult to kspecv1alpha1.CheckResult
 	results := make([]kspecv1alpha1.CheckResult, len(scanResult.Results))
@@ -64,6 +66,7 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 			Namespace: ReportNamespace,
 			Labels: map[string]string{
 				"kspec.io/cluster-spec": clusterSpec.Name,
+				"kspec.io/cluster-name": clusterInfo.Name,
 				"kspec.io/report-type":  "compliance",
 			},
 		},
@@ -72,7 +75,9 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 				Name:    clusterSpec.Name,
 				Version: clusterSpec.ResourceVersion,
 			},
-			ScanTime: metav1.Time{Time: time.Now().UTC()},
+			ClusterName: clusterInfo.Name,
+			ClusterUID:  clusterInfo.UID,
+			ScanTime:    metav1.Time{Time: time.Now().UTC()},
 			Summary: kspecv1alpha1.ReportSummary{
 				Total:    scanResult.Summary.TotalChecks,
 				Passed:   scanResult.Summary.Passed,
@@ -105,12 +110,13 @@ func (r *ClusterSpecReconciler) createDriftReport(
 	ctx context.Context,
 	clusterSpec *kspecv1alpha1.ClusterSpecification,
 	driftReport *drift.DriftReport,
+	clusterInfo *clientpkg.ClusterInfo,
 ) error {
 	log := log.FromContext(ctx)
 
-	// Generate report name with timestamp
+	// Generate report name with timestamp and cluster name
 	timestamp := time.Now().UTC().Format("20060102-150405")
-	reportName := fmt.Sprintf("%s-drift-%s", clusterSpec.Name, timestamp)
+	reportName := fmt.Sprintf("%s-%s-drift-%s", clusterInfo.Name, clusterSpec.Name, timestamp)
 
 	// Convert drift.DriftEvent to kspecv1alpha1.DriftEvent
 	events := make([]kspecv1alpha1.DriftEvent, len(driftReport.Events))
@@ -170,6 +176,7 @@ func (r *ClusterSpecReconciler) createDriftReport(
 			Namespace: ReportNamespace,
 			Labels: map[string]string{
 				"kspec.io/cluster-spec": clusterSpec.Name,
+				"kspec.io/cluster-name": clusterInfo.Name,
 				"kspec.io/severity":     severity,
 			},
 		},
@@ -178,6 +185,8 @@ func (r *ClusterSpecReconciler) createDriftReport(
 				Name:    clusterSpec.Name,
 				Version: clusterSpec.ResourceVersion,
 			},
+			ClusterName:   clusterInfo.Name,
+			ClusterUID:    clusterInfo.UID,
 			DetectionTime: metav1.Time{Time: time.Now().UTC()},
 			DriftDetected: driftReport.Drift.Detected,
 			Severity:      severity,
@@ -206,16 +215,16 @@ func (r *ClusterSpecReconciler) createDriftReport(
 }
 
 // cleanupOldReports deletes old reports to maintain retention policy
-func (r *ClusterSpecReconciler) cleanupOldReports(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification) error {
+func (r *ClusterSpecReconciler) cleanupOldReports(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification, clusterInfo *clientpkg.ClusterInfo) error {
 	log := log.FromContext(ctx)
 
 	// Cleanup old ComplianceReports
-	if err := r.cleanupOldComplianceReports(ctx, clusterSpec); err != nil {
+	if err := r.cleanupOldComplianceReports(ctx, clusterSpec, clusterInfo); err != nil {
 		log.Error(err, "Failed to cleanup old ComplianceReports")
 	}
 
 	// Cleanup old DriftReports
-	if err := r.cleanupOldDriftReports(ctx, clusterSpec); err != nil {
+	if err := r.cleanupOldDriftReports(ctx, clusterSpec, clusterInfo); err != nil {
 		log.Error(err, "Failed to cleanup old DriftReports")
 	}
 
@@ -223,13 +232,16 @@ func (r *ClusterSpecReconciler) cleanupOldReports(ctx context.Context, clusterSp
 }
 
 // cleanupOldComplianceReports removes old ComplianceReports beyond retention limit
-func (r *ClusterSpecReconciler) cleanupOldComplianceReports(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification) error {
+func (r *ClusterSpecReconciler) cleanupOldComplianceReports(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification, clusterInfo *clientpkg.ClusterInfo) error {
 	var reportList kspecv1alpha1.ComplianceReportList
 	if err := r.List(ctx, &reportList,
 		&client.ListOptions{
 			Namespace: ReportNamespace,
 		},
-		client.MatchingLabels{"kspec.io/cluster-spec": clusterSpec.Name},
+		client.MatchingLabels{
+			"kspec.io/cluster-spec": clusterSpec.Name,
+			"kspec.io/cluster-name": clusterInfo.Name,
+		},
 	); err != nil {
 		return err
 	}
@@ -250,13 +262,16 @@ func (r *ClusterSpecReconciler) cleanupOldComplianceReports(ctx context.Context,
 }
 
 // cleanupOldDriftReports removes old DriftReports beyond retention limit
-func (r *ClusterSpecReconciler) cleanupOldDriftReports(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification) error {
+func (r *ClusterSpecReconciler) cleanupOldDriftReports(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification, clusterInfo *clientpkg.ClusterInfo) error {
 	var reportList kspecv1alpha1.DriftReportList
 	if err := r.List(ctx, &reportList,
 		&client.ListOptions{
 			Namespace: ReportNamespace,
 		},
-		client.MatchingLabels{"kspec.io/cluster-spec": clusterSpec.Name},
+		client.MatchingLabels{
+			"kspec.io/cluster-spec": clusterSpec.Name,
+			"kspec.io/cluster-name": clusterInfo.Name,
+		},
 	); err != nil {
 		return err
 	}

@@ -26,10 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -83,13 +80,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create Kubernetes clients
+	// Get config for multi-cluster support
 	config := ctrl.GetConfigOrDie()
-	kubeClient, dynamicClient, err := createKubernetesClients(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create kubernetes clients")
-		os.Exit(1)
-	}
 
 	// Create Client Factory for multi-cluster support
 	clientFactory := clientpkg.NewClusterClientFactory(config, mgr.GetClient())
@@ -105,12 +97,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup ClusterSpecification controller
+	// Setup ClusterSpecification controller (multi-cluster enabled)
 	if err = controllers.NewClusterSpecReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
-		kubeClient,
-		dynamicClient,
+		config,
+		clientFactory,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterSpecification")
 		os.Exit(1)
@@ -132,19 +124,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-// createKubernetesClients creates the necessary Kubernetes clients
-func createKubernetesClients(config *rest.Config) (kubernetes.Interface, dynamic.Interface, error) {
-	kubeClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return kubeClient, dynamicClient, nil
 }
