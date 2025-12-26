@@ -148,6 +148,7 @@ func (f *TestFramework) CreateClusterSpec(ctx context.Context, name, namespace s
 	cs.Name = name
 	cs.Namespace = namespace
 	cs.Spec.Kubernetes.MinVersion = "1.28.0"
+	cs.Spec.Kubernetes.MaxVersion = "1.30.0"
 
 	if err := f.Client.Create(ctx, cs); err != nil {
 		return nil, fmt.Errorf("failed to create ClusterSpec: %w", err)

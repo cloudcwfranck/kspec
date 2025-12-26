@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
+	"github.com/cloudcwfranck/kspec/pkg/spec"
 )
 
 // +kubebuilder:webhook:path=/validate-v1-pod,mutating=false,failurePolicy=fail,sideEffects=None,groups="",resources=pods,verbs=create;update,versions=v1,name=vpod.kspec.io,admissionReviewVersions=v1
@@ -165,9 +166,9 @@ func (v *PodValidator) isExemptedNamespace(namespace string, clusterSpec *kspecv
 	}
 
 	// Check PodSecurity exemptions
-	if clusterSpec.Spec.PodSecurity != nil && clusterSpec.Spec.PodSecurity.Exemptions != nil {
-		for _, ns := range clusterSpec.Spec.PodSecurity.Exemptions.Namespaces {
-			if namespace == ns {
+	if clusterSpec.Spec.PodSecurity != nil && len(clusterSpec.Spec.PodSecurity.Exemptions) > 0 {
+		for _, exemption := range clusterSpec.Spec.PodSecurity.Exemptions {
+			if namespace == exemption.Namespace {
 				return true
 			}
 		}
@@ -198,18 +199,11 @@ func (v *PodValidator) validateWorkloadSecurity(pod *corev1.Pod, clusterSpec *ks
 		}
 	}
 
-	// Check resource requirements
-	if workloads.Resources != nil {
-		if err := v.validateResourceRequirements(pod, workloads.Resources); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
 // validateContainerRequirement checks if required field is set
-func (v *PodValidator) validateContainerRequirement(pod *corev1.Pod, req kspecv1alpha1.FieldRequirement) error {
+func (v *PodValidator) validateContainerRequirement(pod *corev1.Pod, req spec.FieldRequirement) error {
 	for i, container := range pod.Spec.Containers {
 		switch req.Key {
 		case "securityContext.runAsNonRoot":
@@ -224,13 +218,23 @@ func (v *PodValidator) validateContainerRequirement(pod *corev1.Pod, req kspecv1
 				return fmt.Errorf("container %d (%s) must set securityContext.allowPrivilegeEscalation",
 					i, container.Name)
 			}
-			expectedValue := req.Value != nil && *req.Value == "false"
-			actualValue := container.SecurityContext.AllowPrivilegeEscalation != nil &&
-				!*container.SecurityContext.AllowPrivilegeEscalation
+			// If a value is specified, check if it matches "false" or false
+			if req.Value != nil {
+				expectedFalse := false
+				switch v := req.Value.(type) {
+				case string:
+					expectedFalse = v == "false"
+				case bool:
+					expectedFalse = !v
+				}
 
-			if expectedValue && !actualValue {
-				return fmt.Errorf("container %d (%s) must have securityContext.allowPrivilegeEscalation=false",
-					i, container.Name)
+				actualValue := container.SecurityContext.AllowPrivilegeEscalation != nil &&
+					!*container.SecurityContext.AllowPrivilegeEscalation
+
+				if expectedFalse && !actualValue {
+					return fmt.Errorf("container %d (%s) must have securityContext.allowPrivilegeEscalation=false",
+						i, container.Name)
+				}
 			}
 
 		case "securityContext.readOnlyRootFilesystem":
@@ -246,7 +250,7 @@ func (v *PodValidator) validateContainerRequirement(pod *corev1.Pod, req kspecv1
 }
 
 // validateContainerForbidden checks if forbidden field is not set
-func (v *PodValidator) validateContainerForbidden(pod *corev1.Pod, forbidden kspecv1alpha1.FieldRequirement) error {
+func (v *PodValidator) validateContainerForbidden(pod *corev1.Pod, forbidden spec.FieldRequirement) error {
 	for i, container := range pod.Spec.Containers {
 		switch forbidden.Key {
 		case "securityContext.privileged":
@@ -270,25 +274,6 @@ func (v *PodValidator) validateContainerForbidden(pod *corev1.Pod, forbidden ksp
 	case "hostIPC":
 		if pod.Spec.HostIPC {
 			return fmt.Errorf("pod must not use hostIPC")
-		}
-	}
-
-	return nil
-}
-
-// validateResourceRequirements checks if resource limits/requests are set
-func (v *PodValidator) validateResourceRequirements(pod *corev1.Pod, resources *kspecv1alpha1.ResourceRequirements) error {
-	for i, container := range pod.Spec.Containers {
-		if resources.RequireLimits {
-			if container.Resources.Limits == nil || len(container.Resources.Limits) == 0 {
-				return fmt.Errorf("container %d (%s) must have resource limits", i, container.Name)
-			}
-		}
-
-		if resources.RequireRequests {
-			if container.Resources.Requests == nil || len(container.Resources.Requests) == 0 {
-				return fmt.Errorf("container %d (%s) must have resource requests", i, container.Name)
-			}
 		}
 	}
 

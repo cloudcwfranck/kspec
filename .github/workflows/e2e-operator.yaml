@@ -198,17 +198,21 @@ jobs:
           kind: ClusterSpecification
           metadata:
             name: test-cluster
-            namespace: kspec-system
           spec:
             kubernetes:
               minVersion: "1.27.0"
               maxVersion: "1.30.0"
             podSecurity:
               enforce: baseline
+              audit: baseline
+              warn: baseline
               exemptions:
-                namespaces:
-                  - kube-system
-                  - kspec-system
+                - namespace: kube-system
+                  level: baseline
+                  reason: System namespace
+                - namespace: kspec-system
+                  level: baseline
+                  reason: Operator namespace
           EOF
 
       - name: Wait for ClusterSpec reconciliation
@@ -216,7 +220,7 @@ jobs:
         run: |
           echo "Waiting for ClusterSpec to reconcile..."
           for i in {1..60}; do
-            PHASE=$(kubectl get clusterspec test-cluster -n kspec-system -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+            PHASE=$(kubectl get clusterspec test-cluster -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
             echo "Attempt $i/60: Phase = $PHASE"
 
             if [ "$PHASE" = "Active" ] || [ "$PHASE" = "Failed" ]; then
@@ -228,7 +232,7 @@ jobs:
           done
 
           # Get final status
-          kubectl get clusterspec test-cluster -n kspec-system -o yaml
+          kubectl get clusterspec test-cluster -o yaml
 
       - name: Verify ComplianceReport created
         run: |
@@ -254,11 +258,11 @@ jobs:
       - name: Test ClusterSpec update
         run: |
           # Update ClusterSpec
-          kubectl patch clusterspec test-cluster -n kspec-system --type=merge -p '
+          kubectl patch clusterspec test-cluster --type=merge -p '
           {
             "spec": {
               "network": {
-                "requireNetworkPolicies": true
+                "defaultDeny": true
               }
             }
           }'
@@ -267,7 +271,7 @@ jobs:
           sleep 10
 
           # Verify observedGeneration incremented
-          OBSERVED_GEN=$(kubectl get clusterspec test-cluster -n kspec-system \
+          OBSERVED_GEN=$(kubectl get clusterspec test-cluster \
             -o jsonpath='{.status.observedGeneration}')
           echo "Observed generation: $OBSERVED_GEN"
 
@@ -281,11 +285,11 @@ jobs:
       - name: Test ClusterSpec deletion
         run: |
           # Delete ClusterSpec
-          kubectl delete clusterspec test-cluster -n kspec-system
+          kubectl delete clusterspec test-cluster
 
           # Wait for finalizer cleanup
           for i in {1..30}; do
-            if ! kubectl get clusterspec test-cluster -n kspec-system 2>/dev/null; then
+            if ! kubectl get clusterspec test-cluster 2>/dev/null; then
               echo "✅ ClusterSpec deleted successfully"
               break
             fi
