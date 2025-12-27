@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kspec-operator
+  labels:
+    app.kubernetes.io/name: kspec-operator
+    app.kubernetes.io/component: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kspec-operator
+subjects:
+  - kind: ServiceAccount
+    name: kspec-operator
+    namespace: kspec-system

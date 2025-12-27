@@ -1,0 +1,62 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kspec-operator
+  labels:
+    app.kubernetes.io/name: kspec-operator
+    app.kubernetes.io/component: operator
+rules:
+  # Core resources for scanning
+  - apiGroups: [""]
+    resources: ["namespaces", "pods", "services", "serviceaccounts", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+
+  # Workload resources for scanning
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+
+  # Batch resources for scanning
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+
+  # Network resources for scanning
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
+    verbs: ["get", "list", "watch"]
+
+  # RBAC resources for scanning
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch"]
+
+  # Policy resources for scanning
+  - apiGroups: ["policy"]
+    resources: ["podsecuritypolicies", "poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+
+  # Admission controllers for scanning
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch"]
+
+  # Kyverno policies for drift detection (read-only in v0.2.0)
+  - apiGroups: ["kyverno.io"]
+    resources: ["clusterpolicies", "policies"]
+    verbs: ["get", "list", "watch"]
+
+  # kspec CRDs - full access
+  - apiGroups: ["kspec.io"]
+    resources: ["clusterspecifications", "clustertargets", "compliancereports", "driftreports"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # kspec CRD status subresources
+  - apiGroups: ["kspec.io"]
+    resources: ["clusterspecifications/status", "clustertargets/status", "compliancereports/status", "driftreports/status"]
+    verbs: ["get", "update", "patch"]
+
+  # kspec CRD finalizers
+  - apiGroups: ["kspec.io"]
+    resources: ["clusterspecifications/finalizers"]
+    verbs: ["update"]

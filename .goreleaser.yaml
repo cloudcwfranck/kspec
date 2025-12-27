@@ -27,6 +27,24 @@ builds:
     flags:
       - -trimpath
 
+  - id: manager
+    main: ./cmd/manager
+    binary: manager
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    flags:
+      - -trimpath
+
 archives:
   - id: kspec-archive
     format: tar.gz
@@ -152,22 +170,24 @@ release:
 
     **Full Changelog**: https://github.com/cloudcwfranck/kspec/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-# Docker images (future - when we have a container)
-# dockers:
-#   - ids:
-#       - kspec
-#     goos: linux
-#     goarch: amd64
-#     image_templates:
-#       - "ghcr.io/cloudcwfranck/kspec:{{ .Version }}"
-#       - "ghcr.io/cloudcwfranck/kspec:latest"
-#     dockerfile: Dockerfile
-#     build_flag_templates:
-#       - "--label=org.opencontainers.image.created={{.Date}}"
-#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
-#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-#       - "--label=org.opencontainers.image.version={{.Version}}"
-#       - "--platform=linux/amd64"
+# Docker images for operator
+dockers:
+  - ids:
+      - manager
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/cloudcwfranck/kspec-operator:{{ .Version }}"
+      - "ghcr.io/cloudcwfranck/kspec-operator:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title=kspec-operator"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source=https://github.com/cloudcwfranck/kspec"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+      - "--platform=linux/amd64"
 
 announce:
   skip: true
