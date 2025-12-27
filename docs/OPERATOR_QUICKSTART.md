@@ -26,8 +26,8 @@ Get started with the kspec Kubernetes Operator in 10 minutes - continuous compli
 
 **Option A: Kustomize (Recommended)**
 ```bash
-# Install CRDs and operator
-kubectl apply -k github.com/cloudcwfranck/kspec/config/default
+# Install CRDs and operator (v0.2.0)
+kubectl apply -k github.com/cloudcwfranck/kspec/config/default?ref=v0.2.0
 
 # Verify installation
 kubectl get pods -n kspec-system
@@ -37,6 +37,12 @@ Expected output:
 ```
 NAME                              READY   STATUS    RESTARTS   AGE
 kspec-operator-59f7d8c5b4-x7k2p   1/1     Running   0          30s
+```
+
+**Verify CRDs installed:**
+```bash
+kubectl get crd | grep kspec.io
+# Expected: 4 CRDs (clusterspecifications, clustertargets, compliancereports, driftreports)
 ```
 
 **Option B: GitOps (ArgoCD)**
@@ -51,7 +57,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/cloudcwfranck/kspec
-    targetRevision: main
+    targetRevision: v0.2.0
     path: config/default
   destination:
     server: https://kubernetes.default.svc
@@ -60,6 +66,11 @@ spec:
     automated: {prune: true, selfHeal: true}
     syncOptions: [CreateNamespace=true]
 ```
+
+**Important Notes:**
+- ✅ **Webhooks disabled by default** - Safe to install on any cluster
+- ✅ **No cert-manager required** - Webhook TLS deferred to v0.3.0
+- ⚠️ **Policy enforcement** - Use CLI `kspec enforce` command for Kyverno integration
 
 ### Step 2: Create a ClusterSpecification
 

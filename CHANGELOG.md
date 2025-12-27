@@ -129,21 +129,141 @@ This is the first public release of kspec, a Kubernetes Cluster Compliance Enfor
 - **Efficient policy generation** - Minimal API calls
 - **Graceful error handling** - Continues on non-critical failures
 
+## [0.2.0] - 2025-12-27
+
+### 🎉 Kubernetes Operator Release
+
+This release introduces the **kspec Kubernetes Operator** for continuous cluster compliance monitoring. The operator automates compliance scanning, drift detection, and report generation using Kubernetes-native custom resources.
+
+### Added
+
+#### Phase 7: Kubernetes Operator
+- **Kubernetes Operator** for continuous compliance monitoring
+  - Automatic reconciliation every 5 minutes
+  - Multi-cluster scanning support via ClusterTarget CRD
+  - Immutable audit trail with ComplianceReport and DriftReport CRs
+  - Label-based resource cleanup with proper finalizers
+- **ClusterSpecification CRD** (`kspec.io/v1alpha1`)
+  - Declarative cluster compliance definitions
+  - Version-controlled security requirements
+  - Status tracking with compliance scores and conditions
+- **ClusterTarget CRD** for multi-cluster support
+  - Remote cluster scanning via kubeconfig
+  - Connection health monitoring
+  - Per-cluster enforcement controls
+- **ComplianceReport CRD** for audit trail
+  - Immutable compliance scan results
+  - Detailed check results with severity and status
+  - Timestamp-based uniqueness (microsecond precision)
+- **DriftReport CRD** for drift detection
+  - Policy drift detection (missing, modified, extra)
+  - Compliance drift tracking
+  - Drift severity classification
+- **Enterprise-grade deployment manifests**
+  - Production security defaults (non-root, read-only FS, dropped capabilities)
+  - Kustomize-based installation
+  - RBAC with least-privilege permissions
+  - Health and readiness probes
+- **Container image distribution**
+  - Published to GitHub Container Registry (ghcr.io)
+  - Multi-arch support (amd64, arm64)
+  - OCI-compliant image labels
+
+### Fixed
+- **CRD enum validation** - Normalized scanner outputs to match CRD requirements
+  - Status: pass/fail/skip → Pass/Fail/Error
+  - Severity: low/medium/high/critical → Low/Medium/High/Critical
+  - Drift types: policy/compliance/configuration → Policy/Compliance/Configuration
+- **Report name collisions** - Microsecond timestamp precision prevents duplicates
+- **ClusterSpec phase transitions** - Always reaches Active after successful scan
+- **Owner reference cleanup** - Label-based cleanup for cluster-scoped to namespaced resources
+- **Go version compatibility** - Fixed go.mod to use Go 1.21
+- **Build system** - Added kubebuilder-compatible Makefile targets
+- **CRD installation** - Proper kustomize-based installation
+
+### Changed
+- **Webhooks disabled by default** - Webhooks require cert-manager and are marked experimental
+  - Enable with `--enable-webhooks=true` flag
+  - TLS provisioning deferred to v0.3.0
+  - Operator safe to install on any cluster
+- **Enterprise-grade test coverage** - 55+ normalization tests, 80%+ coverage
+- **Security hardening** - Production-grade security defaults in all manifests
+
+### Production-Ready Features
+✅ **Continuous Compliance Monitoring** - ClusterSpecification reconciliation
+✅ **Multi-Cluster Scanning** - ClusterTarget support for remote clusters
+✅ **Immutable Audit Trail** - ComplianceReport and DriftReport CRs
+✅ **Drift Detection** - Policy and compliance drift tracking
+✅ **Enterprise Security** - Non-root, read-only FS, dropped capabilities
+✅ **Health Monitoring** - Prometheus metrics, health probes
+
+### Experimental Features
+⚠️ **Admission Webhooks** - Disabled by default, requires cert-manager (v0.3.0)
+⚠️ **Policy Enforcement** - Use CLI `kspec enforce` command for Kyverno integration
+
+### Known Limitations
+- **Webhook TLS** - Requires manual cert-manager setup (deferred to v0.3.0)
+- **Policy Enforcement** - Operator performs monitoring only; use CLI for enforcement
+- **Multi-cluster CLI commands** - `kspec cluster discover/add` not yet implemented
+- **Web Dashboard** - Dashboard deployment exists but not documented
+
+### Installation
+
+**Quick Install:**
+```bash
+kubectl apply -k github.com/cloudcwfranck/kspec/config/default?ref=v0.2.0
+```
+
+**Verify Installation:**
+```bash
+kubectl get pods -n kspec-system
+kubectl get crd | grep kspec.io
+```
+
+**Quick Start:**
+```bash
+# Apply sample ClusterSpecification
+kubectl apply -f https://raw.githubusercontent.com/cloudcwfranck/kspec/v0.2.0/config/samples/kspec_v1alpha1_clusterspecification.yaml
+
+# Watch status
+kubectl get clusterspec -n kspec-system -w
+
+# View compliance report
+kubectl get compliancereport -n kspec-system
+```
+
+### Migration from v0.1.0
+If using v0.1.0 CLI-based workflow:
+1. Install operator: `kubectl apply -k github.com/cloudcwfranck/kspec/config/default?ref=v0.2.0`
+2. Convert spec YAML to ClusterSpecification CR
+3. Apply CR: `kubectl apply -f clusterspec.yaml`
+4. Continue using CLI for policy enforcement: `kspec enforce --spec cluster-spec.yaml`
+
+### Documentation
+- [Operator Quickstart Guide](docs/OPERATOR_QUICKSTART.md)
+- [API Reference](docs/API_REFERENCE.md)
+- [Webhooks (Experimental)](docs/WEBHOOKS.md)
+- [Development Guide](docs/OPERATOR_DEVELOPMENT_GUIDE.md)
+
+---
+
 ## [Unreleased]
 
-### Planned
-
-- Phase 7: Release preparation and public launch
-- Phase 8: Advanced features (webhooks, multi-cluster, trends)
+### Planned (v0.3.0)
+- Webhook TLS with cert-manager integration
+- Policy enforcement in operator (automated Kyverno policy generation)
+- Multi-cluster CLI commands (`kspec cluster discover/add`)
+- High availability with leader election
 - Homebrew formula for easy installation
-- Docker images for container-based usage
 - Documentation website (Vercel-hosted)
+
+### Planned (Future)
 - Alert integrations (Slack, PagerDuty, webhooks)
 - DriftConfig CRD for advanced configuration
-- Multi-cluster drift monitoring
 - Trend analysis and reporting
 - SQLite storage backend for drift history
 
 ---
 
+[0.2.0]: https://github.com/cloudcwfranck/kspec/releases/tag/v0.2.0
 [0.1.0]: https://github.com/cloudcwfranck/kspec/releases/tag/v0.1.0

@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kspec-system
+
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager
+
+commonLabels:
+  app.kubernetes.io/name: kspec-operator
+  app.kubernetes.io/component: operator
+  app.kubernetes.io/part-of: kspec
+
+images:
+  - name: kspec-operator
+    newName: ghcr.io/cloudcwfranck/kspec-operator
+    newTag: v0.2.0
