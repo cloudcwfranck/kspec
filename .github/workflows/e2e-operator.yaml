@@ -124,8 +124,8 @@ jobs:
 
       - name: Install CRDs
         run: |
-          # Generate and install CRDs
-          make install || kubectl apply -f config/crd/kspec.io_*.yaml
+          # Generate and install CRDs using kustomize
+          make install || kubectl apply -k config/crd/
 
           # Verify CRDs installed
           kubectl get crd | grep kspec.io

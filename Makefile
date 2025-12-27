@@ -85,12 +85,12 @@ manifests:
 ## install: Install CRDs into cluster (kubebuilder compatibility)
 install: manifests
 	@echo "Installing CRDs..."
-	kubectl apply -f config/crd/kspec.io_*.yaml
+	kubectl apply -k config/crd/
 
 ## uninstall: Uninstall CRDs from cluster (kubebuilder compatibility)
 uninstall:
 	@echo "Uninstalling CRDs..."
-	kubectl delete -f config/crd/kspec.io_*.yaml --ignore-not-found=true
+	kubectl delete -k config/crd/ --ignore-not-found=true
 
 ## build-dashboard: Build the web dashboard binary
 build-dashboard:

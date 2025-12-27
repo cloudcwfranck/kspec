@@ -1,5 +1,6 @@
 # Kustomization for installing kspec CRDs
 resources:
   - kspec.io_clusterspecifications.yaml
+  - kspec.io_clustertargets.yaml
   - kspec.io_compliancereports.yaml
   - kspec.io_driftreports.yaml
