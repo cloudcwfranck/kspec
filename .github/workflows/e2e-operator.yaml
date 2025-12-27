@@ -133,11 +133,20 @@ jobs:
       - name: Create kspec-system namespace
         run: |
           # Create the namespace for operator and reports
-          kubectl create namespace kspec-system || \
-            kubectl get namespace kspec-system > /dev/null 2>&1
+          # Check if namespace exists first, then create if needed
+          if kubectl get namespace kspec-system > /dev/null 2>&1; then
+            echo "ℹ️  kspec-system namespace already exists"
+          else
+            echo "Creating kspec-system namespace..."
+            kubectl create namespace kspec-system
+          fi
 
           # Verify namespace exists
-          kubectl get namespace kspec-system
+          if ! kubectl get namespace kspec-system; then
+            echo "❌ Failed to create kspec-system namespace"
+            exit 1
+          fi
+
           echo "✅ kspec-system namespace verified"
 
       - name: Deploy operator RBAC
@@ -155,18 +164,40 @@ jobs:
           metadata:
             name: kspec-operator
           rules:
+          # Core resource permissions for scanning
           - apiGroups: [""]
-            resources: ["namespaces", "pods", "services", "configmaps", "secrets"]
+            resources: ["namespaces", "pods", "services", "configmaps", "secrets", "serviceaccounts"]
             verbs: ["get", "list", "watch"]
+          # Apps resources for workload scanning
           - apiGroups: ["apps"]
-            resources: ["deployments", "statefulsets", "daemonsets"]
+            resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
             verbs: ["get", "list", "watch"]
+          # RBAC resources for RBAC checks
+          - apiGroups: ["rbac.authorization.k8s.io"]
+            resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
+            verbs: ["get", "list", "watch"]
+          # Network policy resources
+          - apiGroups: ["networking.k8s.io"]
+            resources: ["networkpolicies"]
+            verbs: ["get", "list", "watch"]
+          # Admission controller resources
+          - apiGroups: ["admissionregistration.k8s.io"]
+            resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+            verbs: ["get", "list", "watch"]
+          # Kyverno policy resources (for drift detection)
+          - apiGroups: ["kyverno.io"]
+            resources: ["clusterpolicies", "policies"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          # kspec CRD permissions
           - apiGroups: ["kspec.io"]
             resources: ["clusterspecifications", "clustertargets", "compliancereports", "driftreports"]
             verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
           - apiGroups: ["kspec.io"]
             resources: ["clusterspecifications/status", "clustertargets/status", "compliancereports/status", "driftreports/status"]
             verbs: ["get", "update", "patch"]
+          - apiGroups: ["kspec.io"]
+            resources: ["clusterspecifications/finalizers", "clustertargets/finalizers"]
+            verbs: ["update"]
           ---
           apiVersion: rbac.authorization.k8s.io/v1
           kind: ClusterRoleBinding
@@ -184,9 +215,22 @@ jobs:
 
           echo "✅ RBAC configured"
 
+          # Verify RBAC resources created
+          kubectl get clusterrole kspec-operator
+          kubectl get clusterrolebinding kspec-operator
+
       - name: Deploy operator to kind cluster
         run: |
+          # Verify namespace before deployment
+          echo "Verifying kspec-system namespace exists..."
+          if ! kubectl get namespace kspec-system; then
+            echo "❌ kspec-system namespace not found before operator deployment"
+            kubectl get namespaces
+            exit 1
+          fi
+
           # Deploy operator deployment
+          echo "Creating operator deployment..."
           kubectl apply -f - <<EOF
           apiVersion: apps/v1
           kind: Deployment
@@ -213,6 +257,9 @@ jobs:
                   args:
                   - --metrics-bind-address=:8080
                   - --health-probe-bind-address=:8081
+                  env:
+                  - name: ENABLE_WEBHOOKS
+                    value: "false"
                   resources:
                     requests:
                       cpu: 100m
@@ -223,6 +270,9 @@ jobs:
           EOF
 
           echo "✅ Operator deployment created"
+
+          # Verify deployment was created
+          kubectl get deployment kspec-operator -n kspec-system
 
       - name: Wait for operator to be ready
         run: |
@@ -366,20 +416,32 @@ jobs:
 
           # Check if namespace exists
           if ! kubectl get namespace kspec-system > /dev/null 2>&1; then
-            echo "❌ kspec-system namespace not found"
+            echo "⚠️  kspec-system namespace not found - earlier step may have failed"
+            echo ""
+            echo "Available namespaces:"
             kubectl get namespaces
-            exit 1
-          fi
+            echo ""
+            echo "This is expected if namespace creation step failed"
+            # Don't exit 1 here since this runs with if: always()
+          else
+            echo "✅ kspec-system namespace exists"
 
-          # Check if deployment exists
-          if ! kubectl get deployment kspec-operator -n kspec-system > /dev/null 2>&1; then
-            echo "❌ kspec-operator deployment not found"
-            kubectl get deployments -n kspec-system
-            exit 1
-          fi
+            # Check if deployment exists
+            if ! kubectl get deployment kspec-operator -n kspec-system > /dev/null 2>&1; then
+              echo "⚠️  kspec-operator deployment not found - deployment step may have failed"
+              echo ""
+              echo "Deployments in kspec-system:"
+              kubectl get deployments -n kspec-system || echo "No deployments found"
+            else
+              echo "✅ kspec-operator deployment exists"
 
-          kubectl logs -n kspec-system deployment/kspec-operator --tail=200 || \
-            echo "Failed to get logs (pods may not be ready)"
+              # Try to get logs
+              echo ""
+              echo "Operator logs (last 200 lines):"
+              kubectl logs -n kspec-system deployment/kspec-operator --tail=200 || \
+                echo "⚠️  Failed to get logs (pods may not be ready yet)"
+            fi
+          fi
 
       - name: E2E Kind Test Summary
         if: always()
