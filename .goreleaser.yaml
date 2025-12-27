@@ -47,6 +47,8 @@ builds:
 
 archives:
   - id: kspec-archive
+    builds:
+      - kspec
     format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
