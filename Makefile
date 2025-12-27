@@ -47,8 +47,8 @@ clean:
 	rm -f coverage.out coverage.html
 	@echo "Clean complete"
 
-## install: Install kspec to /usr/local/bin
-install: build
+## install-bin: Install kspec binary to /usr/local/bin
+install-bin: build
 	@echo "Installing $(BINARY_NAME) to /usr/local/bin..."
 	sudo mv $(BINARY_NAME) /usr/local/bin/
 	@echo "Installed: /usr/local/bin/$(BINARY_NAME)"
@@ -68,6 +68,29 @@ build-operator:
 	@echo "Building operator..."
 	CGO_ENABLED=0 $(GO) build -o bin/manager ./cmd/manager
 	@echo "Built: ./bin/manager"
+
+## manager: Alias for build-operator (kubebuilder compatibility)
+manager: build-operator
+
+## manifests: Generate CRD manifests (kubebuilder compatibility)
+manifests:
+	@echo "Generating CRD manifests..."
+	@if command -v controller-gen >/dev/null 2>&1; then \
+		controller-gen crd paths="./api/..." output:crd:artifacts:config=config/crd; \
+	else \
+		echo "controller-gen not found, skipping manifest generation"; \
+		echo "Install with: go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest"; \
+	fi
+
+## install: Install CRDs into cluster (kubebuilder compatibility)
+install: manifests
+	@echo "Installing CRDs..."
+	kubectl apply -f config/crd/
+
+## uninstall: Uninstall CRDs from cluster (kubebuilder compatibility)
+uninstall:
+	@echo "Uninstalling CRDs..."
+	kubectl delete -f config/crd/ --ignore-not-found=true
 
 ## build-dashboard: Build the web dashboard binary
 build-dashboard:
