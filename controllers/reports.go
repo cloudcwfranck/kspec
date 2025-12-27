@@ -146,10 +146,10 @@ func (r *ClusterSpecReconciler) createDriftReport(
 		}
 
 		events[i] = kspecv1alpha1.DriftEvent{
-			Type:        string(event.Type),
-			Severity:    string(event.Severity),
+			Type:        normalizeType(string(event.Type)),
+			Severity:    string(event.Severity), // Severity is already lowercase in both drift package and CRD
 			Resource:    resourceRef,
-			DriftType:   event.DriftKind,
+			DriftType:   normalizeDriftKind(event.DriftKind),
 			Check:       "", // drift.DriftEvent has no Check field
 			Message:     event.Message,
 			Expected:    nil, // TODO: Convert to runtime.RawExtension
@@ -371,5 +371,40 @@ func normalizeSeverity(severity string) string {
 			return "Low"
 		}
 		return "Low"
+	}
+}
+
+// normalizeType converts drift type values to CRD-compliant capitalized values
+// DriftReport CRD requires: Policy, Compliance, Configuration (capitalized)
+func normalizeType(driftType string) string {
+	switch driftType {
+	case "policy":
+		return "Policy"
+	case "compliance":
+		return "Compliance"
+	case "configuration":
+		return "Configuration"
+	case "Policy", "Compliance", "Configuration":
+		// Already in correct format
+		return driftType
+	default:
+		// Default to Policy for unknown types
+		return "Policy"
+	}
+}
+
+// normalizeDriftKind maps drift kinds to CRD-compliant values
+// DriftReport CRD requires: deleted, modified, violation
+func normalizeDriftKind(kind string) string {
+	switch kind {
+	case "missing":
+		// Map "missing" to "deleted" as they represent the same concept
+		return "deleted"
+	case "deleted", "modified", "violation", "extra":
+		// Already valid CRD values
+		return kind
+	default:
+		// Default to modified for unknown kinds
+		return "modified"
 	}
 }
