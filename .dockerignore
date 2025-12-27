@@ -1,0 +1,53 @@
+# Git files
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+docs/
+examples/
+
+# Test files
+*_test.go
+test/
+testdata/
+
+# CI/CD
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+bin/
+dist/
+*.out
+*.test
+coverage.out
+*-coverage.out
+
+# Temporary files
+tmp/
+*.tmp
+
+# Config files (may contain sensitive data)
+*.yaml
+*.yml
+!config/crd/*.yaml
+!config/rbac/*.yaml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+
+# Vendor (we use go mod)
+vendor/
+
+# OS files
+.DS_Store
+Thumbs.db
