@@ -35,12 +35,9 @@ func (r *ClusterSpecReconciler) updateStatus(
 ) error {
 	now := metav1.Now()
 
-	// Update phase
-	if calculatePassRate(scanResult.Summary) >= 95 {
-		clusterSpec.Status.Phase = "Active"
-	} else if scanResult.Summary.Failed > 0 {
-		clusterSpec.Status.Phase = "Active" // Still active, but with failures
-	}
+	// Update phase to Active after successful scan
+	// The Ready condition (below) will indicate if compliance requirements are met
+	clusterSpec.Status.Phase = "Active"
 
 	// Update observed generation
 	clusterSpec.Status.ObservedGeneration = clusterSpec.Generation

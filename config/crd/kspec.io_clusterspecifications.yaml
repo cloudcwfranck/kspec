@@ -317,7 +317,8 @@ spec:
                               type: boolean
                             key:
                               type: string
-                            value: {}
+                            value:
+                              type: string
                           required:
                           - key
                           type: object
@@ -331,7 +332,8 @@ spec:
                               type: boolean
                             key:
                               type: string
-                            value: {}
+                            value:
+                              type: string
                           required:
                           - key
                           type: object

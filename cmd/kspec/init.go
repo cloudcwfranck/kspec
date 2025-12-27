@@ -246,15 +246,15 @@ func generateProductionSpec(clusterVersion string) *spec.ClusterSpecification {
 			Workloads: &spec.WorkloadsSpec{
 				Containers: &spec.ContainerSpec{
 					Required: []spec.FieldRequirement{
-						{Key: "securityContext.runAsNonRoot", Value: true},
-						{Key: "securityContext.allowPrivilegeEscalation", Value: false},
-						{Key: "securityContext.capabilities.drop", Value: []interface{}{"ALL"}},
+						{Key: "securityContext.runAsNonRoot", Value: "true"},
+						{Key: "securityContext.allowPrivilegeEscalation", Value: "false"},
+						{Key: "securityContext.capabilities.drop", Value: `["ALL"]`},
 					},
 					Forbidden: []spec.FieldRequirement{
-						{Key: "securityContext.privileged", Value: true},
-						{Key: "hostNetwork", Value: true},
-						{Key: "hostPID", Value: true},
-						{Key: "hostIPC", Value: true},
+						{Key: "securityContext.privileged", Value: "true"},
+						{Key: "hostNetwork", Value: "true"},
+						{Key: "hostPID", Value: "true"},
+						{Key: "hostIPC", Value: "true"},
 					},
 				},
 				Images: &spec.ImageSpec{
@@ -292,10 +292,10 @@ func generateDevelopmentSpec(clusterVersion string) *spec.ClusterSpecification {
 			Workloads: &spec.WorkloadsSpec{
 				Containers: &spec.ContainerSpec{
 					Required: []spec.FieldRequirement{
-						{Key: "securityContext.runAsNonRoot", Value: true},
+						{Key: "securityContext.runAsNonRoot", Value: "true"},
 					},
 					Forbidden: []spec.FieldRequirement{
-						{Key: "securityContext.privileged", Value: true},
+						{Key: "securityContext.privileged", Value: "true"},
 					},
 				},
 			},

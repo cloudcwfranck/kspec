@@ -158,7 +158,7 @@ func (c *WorkloadSecurityCheck) checkRequiredField(pod *corev1.Pod, container *c
 			}
 		}
 	case "securityContext.allowPrivilegeEscalation":
-		if req.Value == false {
+		if req.Value == "false" {
 			if container.SecurityContext == nil || container.SecurityContext.AllowPrivilegeEscalation == nil || *container.SecurityContext.AllowPrivilegeEscalation {
 				return fmt.Sprintf("%s: allowPrivilegeEscalation must be false", containerKey)
 			}

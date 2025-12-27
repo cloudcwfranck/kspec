@@ -36,7 +36,7 @@ func TestDetectPolicyDrift_MissingPolicy(t *testing.T) {
 					Required: []spec.FieldRequirement{
 						{
 							Key:   "securityContext.runAsNonRoot",
-							Value: true,
+							Value: "true",
 						},
 					},
 				},
@@ -134,7 +134,7 @@ func TestDetectPolicyDrift_ModifiedPolicy(t *testing.T) {
 					Required: []spec.FieldRequirement{
 						{
 							Key:   "securityContext.runAsNonRoot",
-							Value: true,
+							Value: "true",
 						},
 					},
 				},

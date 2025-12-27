@@ -24,7 +24,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
@@ -42,8 +41,8 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 ) error {
 	log := log.FromContext(ctx)
 
-	// Generate report name with timestamp and cluster name
-	timestamp := time.Now().UTC().Format("20060102-150405")
+	// Generate report name with timestamp (including milliseconds to avoid collisions)
+	timestamp := time.Now().UTC().Format("20060102-150405.000000")
 	reportName := fmt.Sprintf("%s-%s-%s", clusterInfo.Name, clusterSpec.Name, timestamp)
 
 	// Convert scanner.CheckResult to kspecv1alpha1.CheckResult
@@ -52,8 +51,8 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 		results[i] = kspecv1alpha1.CheckResult{
 			Name:     result.Name,
 			Category: inferCategory(result.Name),
-			Status:   string(result.Status),
-			Severity: string(result.Severity),
+			Status:   normalizeStatus(string(result.Status)),
+			Severity: normalizeSeverity(string(result.Severity)),
 			Message:  result.Message,
 			Details:  nil, // TODO: Convert evidence to runtime.RawExtension
 		}
@@ -91,10 +90,8 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 		},
 	}
 
-	// Set owner reference for garbage collection
-	if err := controllerutil.SetOwnerReference(clusterSpec, report, r.Scheme); err != nil {
-		return fmt.Errorf("failed to set owner reference: %w", err)
-	}
+	// Note: We don't use owner references because ClusterSpecification is cluster-scoped
+	// while reports are namespaced. Cleanup is handled via finalizers instead.
 
 	// Create the report
 	if err := r.Create(ctx, report); err != nil {
@@ -114,8 +111,8 @@ func (r *ClusterSpecReconciler) createDriftReport(
 ) error {
 	log := log.FromContext(ctx)
 
-	// Generate report name with timestamp and cluster name
-	timestamp := time.Now().UTC().Format("20060102-150405")
+	// Generate report name with timestamp (including milliseconds to avoid collisions)
+	timestamp := time.Now().UTC().Format("20060102-150405.000000")
 	reportName := fmt.Sprintf("%s-%s-drift-%s", clusterInfo.Name, clusterSpec.Name, timestamp)
 
 	// Convert drift.DriftEvent to kspecv1alpha1.DriftEvent
@@ -146,10 +143,10 @@ func (r *ClusterSpecReconciler) createDriftReport(
 		}
 
 		events[i] = kspecv1alpha1.DriftEvent{
-			Type:        string(event.Type),
-			Severity:    string(event.Severity),
+			Type:        normalizeType(string(event.Type)),
+			Severity:    string(event.Severity), // Severity is already lowercase in both drift package and CRD
 			Resource:    resourceRef,
-			DriftType:   event.DriftKind,
+			DriftType:   normalizeDriftKind(event.DriftKind),
 			Check:       "", // drift.DriftEvent has no Check field
 			Message:     event.Message,
 			Expected:    nil, // TODO: Convert to runtime.RawExtension
@@ -200,10 +197,8 @@ func (r *ClusterSpecReconciler) createDriftReport(
 		},
 	}
 
-	// Set owner reference for garbage collection
-	if err := controllerutil.SetOwnerReference(clusterSpec, report, r.Scheme); err != nil {
-		return fmt.Errorf("failed to set owner reference: %w", err)
-	}
+	// Note: We don't use owner references because ClusterSpecification is cluster-scoped
+	// while reports are namespaced. Cleanup is handled via finalizers instead.
 
 	// Create the report
 	if err := r.Create(ctx, report); err != nil {
@@ -330,4 +325,81 @@ func inferCategory(checkName string) string {
 
 	// No dot found, return the whole name
 	return checkName
+}
+
+// normalizeStatus converts scanner status values to CRD-compliant capitalized values
+// CRD only allows: Pass, Fail, Error (no Skip)
+func normalizeStatus(status string) string {
+	switch status {
+	case "pass", "passed":
+		return "Pass"
+	case "fail", "failed":
+		return "Fail"
+	case "skip", "skipped":
+		// Skip is not a valid CRD status, treat as Pass since skipped checks don't fail
+		return "Pass"
+	case "error":
+		return "Error"
+	case "Pass", "Fail", "Error":
+		// Already in correct format
+		return status
+	default:
+		// Unknown status, default to Error
+		return "Error"
+	}
+}
+
+// normalizeSeverity converts scanner severity values to CRD-compliant values
+func normalizeSeverity(severity string) string {
+	switch severity {
+	case "low", "Low":
+		return "Low"
+	case "medium", "Medium", "moderate", "Moderate":
+		return "Medium"
+	case "high", "High":
+		return "High"
+	case "critical", "Critical":
+		return "Critical"
+	default:
+		// Default to Low for empty or unknown severity
+		if severity == "" {
+			return "Low"
+		}
+		return "Low"
+	}
+}
+
+// normalizeType converts drift type values to CRD-compliant capitalized values
+// DriftReport CRD requires: Policy, Compliance, Configuration (capitalized)
+func normalizeType(driftType string) string {
+	switch driftType {
+	case "policy":
+		return "Policy"
+	case "compliance":
+		return "Compliance"
+	case "configuration":
+		return "Configuration"
+	case "Policy", "Compliance", "Configuration":
+		// Already in correct format
+		return driftType
+	default:
+		// Default to Policy for unknown types
+		return "Policy"
+	}
+}
+
+// normalizeDriftKind maps drift kinds to CRD-compliant values
+// DriftReport CRD requires: deleted, modified, violation
+func normalizeDriftKind(kind string) string {
+	switch kind {
+	case "missing":
+		// Map "missing" to "deleted" as they represent the same concept
+		return "deleted"
+	case "deleted", "modified", "violation", "extra":
+		// Already valid CRD values
+		return kind
+	default:
+		// Default to modified for unknown kinds
+		return "modified"
+	}
 }

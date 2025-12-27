@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -104,6 +105,14 @@ func NewTestFramework(t *testing.T) *TestFramework {
 		t.Fatalf("Failed to setup controllers: %v", err)
 	}
 
+	// Create kspec-system namespace for namespaced resources like ComplianceReport
+	kspecNamespace := &corev1.Namespace{}
+	kspecNamespace.Name = "kspec-system"
+	if err := k8sClient.Create(context.Background(), kspecNamespace); err != nil {
+		testEnv.Stop()
+		t.Fatalf("Failed to create kspec-system namespace: %v", err)
+	}
+
 	// Start manager
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -146,8 +155,9 @@ func (f *TestFramework) Cleanup(t *testing.T) {
 func (f *TestFramework) CreateClusterSpec(ctx context.Context, name, namespace string) (*kspecv1alpha1.ClusterSpecification, error) {
 	cs := &kspecv1alpha1.ClusterSpecification{}
 	cs.Name = name
-	cs.Namespace = namespace
+	// ClusterSpecification is cluster-scoped, so don't set namespace
 	cs.Spec.Kubernetes.MinVersion = "1.28.0"
+	cs.Spec.Kubernetes.MaxVersion = "1.30.0"
 
 	if err := f.Client.Create(ctx, cs); err != nil {
 		return nil, fmt.Errorf("failed to create ClusterSpec: %w", err)
@@ -183,13 +193,14 @@ func (f *TestFramework) WaitForClusterSpecReady(ctx context.Context, name, names
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for ClusterSpec %s/%s to be ready", namespace, name)
+			return fmt.Errorf("timeout waiting for ClusterSpec %s to be ready", name)
 		case <-ticker.C:
 			var cs kspecv1alpha1.ClusterSpecification
-			if err := f.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &cs); err != nil {
+			// ClusterSpecification is cluster-scoped, so don't use namespace
+			if err := f.Client.Get(ctx, client.ObjectKey{Name: name}, &cs); err != nil {
 				continue
 			}
-			if cs.Status.Phase == "Ready" || cs.Status.Phase == "Synced" {
+			if cs.Status.Phase == "Ready" || cs.Status.Phase == "Synced" || cs.Status.Phase == "Active" {
 				return nil
 			}
 		}
