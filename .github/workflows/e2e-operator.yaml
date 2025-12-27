@@ -133,11 +133,11 @@ jobs:
       - name: Create kspec-system namespace
         run: |
           # Create the namespace for operator and reports
-          kubectl create namespace kspec-system
+          kubectl create namespace kspec-system --dry-run=client -o yaml | kubectl apply -f -
 
           # Verify namespace exists
-          kubectl get namespace kspec-system
-          echo "✅ kspec-system namespace created"
+          kubectl get namespace kspec-system -o yaml
+          echo "✅ kspec-system namespace created and verified"
 
       - name: Deploy operator RBAC
         run: |
@@ -362,7 +362,23 @@ jobs:
         if: always()
         run: |
           echo "=== Operator Logs ==="
-          kubectl logs -n kspec-system deployment/kspec-operator --tail=200
+
+          # Check if namespace exists
+          if ! kubectl get namespace kspec-system > /dev/null 2>&1; then
+            echo "❌ kspec-system namespace not found"
+            kubectl get namespaces
+            exit 1
+          fi
+
+          # Check if deployment exists
+          if ! kubectl get deployment kspec-operator -n kspec-system > /dev/null 2>&1; then
+            echo "❌ kspec-operator deployment not found"
+            kubectl get deployments -n kspec-system
+            exit 1
+          fi
+
+          kubectl logs -n kspec-system deployment/kspec-operator --tail=200 || \
+            echo "Failed to get logs (pods may not be ready)"
 
       - name: E2E Kind Test Summary
         if: always()

@@ -92,7 +92,7 @@ func TestClusterSpecCreation(t *testing.T) {
 		// Verify status fields
 		var updated kspecv1alpha1.ClusterSpecification
 		if err := fw.Client.Get(ctx, client.ObjectKey{
-			Name:      cs.Name,
+			Name: cs.Name,
 		}, &updated); err != nil {
 			t.Fatalf("Failed to retrieve updated ClusterSpec: %v", err)
 		}
@@ -129,7 +129,7 @@ func TestClusterSpecWithClusterRef(t *testing.T) {
 		// Verify status reflects the error
 		var updated kspecv1alpha1.ClusterSpecification
 		if err := fw.Client.Get(ctx, client.ObjectKey{
-			Name:      cs.Name,
+			Name: cs.Name,
 		}, &updated); err != nil {
 			t.Fatalf("Failed to retrieve ClusterSpec: %v", err)
 		}
@@ -165,7 +165,7 @@ func TestClusterSpecWithClusterRef(t *testing.T) {
 		// but it should at least be created and attempt reconciliation)
 		var updated kspecv1alpha1.ClusterSpecification
 		if err := fw.Client.Get(ctx, client.ObjectKey{
-			Name:      cs.Name,
+			Name: cs.Name,
 		}, &updated); err != nil {
 			t.Fatalf("Failed to retrieve ClusterSpec: %v", err)
 		}
@@ -205,7 +205,7 @@ func TestClusterSpecDeletion(t *testing.T) {
 		// Verify it's gone
 		var deleted kspecv1alpha1.ClusterSpecification
 		err = fw.Client.Get(ctx, client.ObjectKey{
-			Name:      cs.Name,
+			Name: cs.Name,
 		}, &deleted)
 
 		if err == nil {
