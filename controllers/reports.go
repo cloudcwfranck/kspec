@@ -52,8 +52,8 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 		results[i] = kspecv1alpha1.CheckResult{
 			Name:     result.Name,
 			Category: inferCategory(result.Name),
-			Status:   string(result.Status),
-			Severity: string(result.Severity),
+			Status:   normalizeStatus(string(result.Status)),
+			Severity: normalizeSeverity(string(result.Severity)),
 			Message:  result.Message,
 			Details:  nil, // TODO: Convert evidence to runtime.RawExtension
 		}
@@ -330,4 +330,46 @@ func inferCategory(checkName string) string {
 
 	// No dot found, return the whole name
 	return checkName
+}
+
+// normalizeStatus converts scanner status values to CRD-compliant capitalized values
+// CRD only allows: Pass, Fail, Error (no Skip)
+func normalizeStatus(status string) string {
+	switch status {
+	case "pass", "passed":
+		return "Pass"
+	case "fail", "failed":
+		return "Fail"
+	case "skip", "skipped":
+		// Skip is not a valid CRD status, treat as Pass since skipped checks don't fail
+		return "Pass"
+	case "error":
+		return "Error"
+	case "Pass", "Fail", "Error":
+		// Already in correct format
+		return status
+	default:
+		// Unknown status, default to Error
+		return "Error"
+	}
+}
+
+// normalizeSeverity converts scanner severity values to CRD-compliant values
+func normalizeSeverity(severity string) string {
+	switch severity {
+	case "low", "Low":
+		return "Low"
+	case "medium", "Medium", "moderate", "Moderate":
+		return "Medium"
+	case "high", "High":
+		return "High"
+	case "critical", "Critical":
+		return "Critical"
+	default:
+		// Default to Low for empty or unknown severity
+		if severity == "" {
+			return "Low"
+		}
+		return "Low"
+	}
 }

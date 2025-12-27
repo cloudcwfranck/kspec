@@ -133,11 +133,12 @@ jobs:
       - name: Create kspec-system namespace
         run: |
           # Create the namespace for operator and reports
-          kubectl create namespace kspec-system --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create namespace kspec-system || \
+            kubectl get namespace kspec-system > /dev/null 2>&1
 
           # Verify namespace exists
-          kubectl get namespace kspec-system -o yaml
-          echo "✅ kspec-system namespace created and verified"
+          kubectl get namespace kspec-system
+          echo "✅ kspec-system namespace verified"
 
       - name: Deploy operator RBAC
         run: |
