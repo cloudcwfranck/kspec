@@ -257,9 +257,7 @@ jobs:
                   args:
                   - --metrics-bind-address=:8080
                   - --health-probe-bind-address=:8081
-                  env:
-                  - name: ENABLE_WEBHOOKS
-                    value: "false"
+                  - --enable-webhooks=false
                   resources:
                     requests:
                       cpu: 100m
