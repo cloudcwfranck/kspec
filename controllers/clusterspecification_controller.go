@@ -264,6 +264,44 @@ func (r *ClusterSpecReconciler) handleDeletion(ctx context.Context, clusterSpec 
 
 	log.Info("Handling deletion, cleaning up resources")
 
+	// Clean up ComplianceReports
+	// Note: We can't use owner references because ClusterSpecification is cluster-scoped
+	// while reports are namespaced. We use labels instead.
+	var complianceReports kspecv1alpha1.ComplianceReportList
+	if err := r.List(ctx, &complianceReports,
+		client.InNamespace(ReportNamespace),
+		client.MatchingLabels{
+			"kspec.io/cluster-spec": clusterSpec.Name,
+		},
+	); err != nil {
+		log.Error(err, "Failed to list ComplianceReports for cleanup")
+	} else {
+		for i := range complianceReports.Items {
+			if err := r.Delete(ctx, &complianceReports.Items[i]); err != nil {
+				log.Error(err, "Failed to delete ComplianceReport", "name", complianceReports.Items[i].Name)
+			}
+		}
+		log.Info("Cleaned up ComplianceReports", "count", len(complianceReports.Items))
+	}
+
+	// Clean up DriftReports
+	var driftReports kspecv1alpha1.DriftReportList
+	if err := r.List(ctx, &driftReports,
+		client.InNamespace(ReportNamespace),
+		client.MatchingLabels{
+			"kspec.io/cluster-spec": clusterSpec.Name,
+		},
+	); err != nil {
+		log.Error(err, "Failed to list DriftReports for cleanup")
+	} else {
+		for i := range driftReports.Items {
+			if err := r.Delete(ctx, &driftReports.Items[i]); err != nil {
+				log.Error(err, "Failed to delete DriftReport", "name", driftReports.Items[i].Name)
+			}
+		}
+		log.Info("Cleaned up DriftReports", "count", len(driftReports.Items))
+	}
+
 	// TODO: Optionally remove enforced policies
 	// For now, we leave policies in place for safety
 	// In production, this could be configurable
@@ -398,10 +436,10 @@ func (r *ClusterSpecReconciler) remediateDrift(ctx context.Context, clusterSpec 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterSpecReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Note: We don't use Owns() for reports because ClusterSpecification is cluster-scoped
+	// while reports are namespaced, so owner references don't work. Cleanup is handled via finalizers.
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kspecv1alpha1.ClusterSpecification{}).
-		Owns(&kspecv1alpha1.ComplianceReport{}).
-		Owns(&kspecv1alpha1.DriftReport{}).
 		Complete(r)
 }
 

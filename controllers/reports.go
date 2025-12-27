@@ -24,7 +24,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
@@ -42,8 +41,8 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 ) error {
 	log := log.FromContext(ctx)
 
-	// Generate report name with timestamp and cluster name
-	timestamp := time.Now().UTC().Format("20060102-150405")
+	// Generate report name with timestamp (including milliseconds to avoid collisions)
+	timestamp := time.Now().UTC().Format("20060102-150405.000000")
 	reportName := fmt.Sprintf("%s-%s-%s", clusterInfo.Name, clusterSpec.Name, timestamp)
 
 	// Convert scanner.CheckResult to kspecv1alpha1.CheckResult
@@ -91,10 +90,8 @@ func (r *ClusterSpecReconciler) createComplianceReport(
 		},
 	}
 
-	// Set owner reference for garbage collection
-	if err := controllerutil.SetOwnerReference(clusterSpec, report, r.Scheme); err != nil {
-		return fmt.Errorf("failed to set owner reference: %w", err)
-	}
+	// Note: We don't use owner references because ClusterSpecification is cluster-scoped
+	// while reports are namespaced. Cleanup is handled via finalizers instead.
 
 	// Create the report
 	if err := r.Create(ctx, report); err != nil {
@@ -114,8 +111,8 @@ func (r *ClusterSpecReconciler) createDriftReport(
 ) error {
 	log := log.FromContext(ctx)
 
-	// Generate report name with timestamp and cluster name
-	timestamp := time.Now().UTC().Format("20060102-150405")
+	// Generate report name with timestamp (including milliseconds to avoid collisions)
+	timestamp := time.Now().UTC().Format("20060102-150405.000000")
 	reportName := fmt.Sprintf("%s-%s-drift-%s", clusterInfo.Name, clusterSpec.Name, timestamp)
 
 	// Convert drift.DriftEvent to kspecv1alpha1.DriftEvent
@@ -200,10 +197,8 @@ func (r *ClusterSpecReconciler) createDriftReport(
 		},
 	}
 
-	// Set owner reference for garbage collection
-	if err := controllerutil.SetOwnerReference(clusterSpec, report, r.Scheme); err != nil {
-		return fmt.Errorf("failed to set owner reference: %w", err)
-	}
+	// Note: We don't use owner references because ClusterSpecification is cluster-scoped
+	// while reports are namespaced. Cleanup is handled via finalizers instead.
 
 	// Create the report
 	if err := r.Create(ctx, report); err != nil {
