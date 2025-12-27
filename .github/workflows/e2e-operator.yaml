@@ -276,9 +276,34 @@ jobs:
 
       - name: Wait for operator to be ready
         run: |
-          kubectl wait --for=condition=available --timeout=3m \
-            deployment/kspec-operator -n kspec-system
+          echo "Waiting for operator deployment to become available..."
 
+          # Wait with timeout
+          if ! kubectl wait --for=condition=available --timeout=3m \
+            deployment/kspec-operator -n kspec-system; then
+
+            echo "❌ Operator deployment failed to become available"
+            echo ""
+            echo "=== Deployment Status ==="
+            kubectl get deployment kspec-operator -n kspec-system -o yaml
+
+            echo ""
+            echo "=== Pod Status ==="
+            kubectl get pods -n kspec-system
+
+            echo ""
+            echo "=== Pod Description ==="
+            kubectl describe pods -n kspec-system
+
+            echo ""
+            echo "=== Pod Logs ==="
+            kubectl logs -n kspec-system -l app=kspec-operator --all-containers=true --tail=100 || \
+              echo "No logs available"
+
+            exit 1
+          fi
+
+          echo "✅ Operator deployment is available"
           kubectl get pods -n kspec-system
 
       - name: Test operator health
