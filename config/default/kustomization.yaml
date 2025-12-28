@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: kspec-system
 
 resources:
+  - namespace.yaml
   - ../crd
   - ../rbac
   - ../manager
