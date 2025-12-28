@@ -26,8 +26,8 @@ Get started with the kspec Kubernetes Operator in 10 minutes - continuous compli
 
 **Option A: Kustomize (Recommended)**
 ```bash
-# Install CRDs and operator (v0.2.0)
-kubectl apply -k github.com/cloudcwfranck/kspec/config/default?ref=v0.2.0
+# Install CRDs and operator (v0.2.1 - stable)
+kubectl apply -k github.com/cloudcwfranck/kspec/config/default?ref=v0.2.1
 
 # Verify installation
 kubectl get pods -n kspec-system
@@ -39,8 +39,9 @@ NAME                              READY   STATUS    RESTARTS   AGE
 kspec-operator-59f7d8c5b4-x7k2p   1/1     Running   0          30s
 ```
 
-**Verify CRDs installed:**
+**Verify namespace and CRDs installed:**
 ```bash
+kubectl get namespace kspec-system
 kubectl get crd | grep kspec.io
 # Expected: 4 CRDs (clusterspecifications, clustertargets, compliancereports, driftreports)
 ```
@@ -57,14 +58,13 @@ spec:
   project: default
   source:
     repoURL: https://github.com/cloudcwfranck/kspec
-    targetRevision: v0.2.0
+    targetRevision: v0.2.1
     path: config/default
   destination:
     server: https://kubernetes.default.svc
     namespace: kspec-system
   syncPolicy:
     automated: {prune: true, selfHeal: true}
-    syncOptions: [CreateNamespace=true]
 ```
 
 **Important Notes:**
