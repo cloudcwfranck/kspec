@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kspec-system
+  labels:
+    app.kubernetes.io/name: kspec
+    app.kubernetes.io/part-of: kspec
+    app.kubernetes.io/component: operator
