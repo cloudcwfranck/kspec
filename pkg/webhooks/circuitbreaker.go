@@ -3,6 +3,8 @@ package webhooks
 import (
 	"sync"
 	"time"
+
+	"github.com/cloudcwfranck/kspec/pkg/metrics"
 )
 
 const (
@@ -66,6 +68,7 @@ func (cb *CircuitBreaker) RecordSuccess() {
 	})
 
 	cb.checkRecovery()
+	cb.updateMetrics()
 }
 
 // RecordError records a failed webhook request
@@ -82,6 +85,7 @@ func (cb *CircuitBreaker) RecordError() {
 	})
 
 	cb.checkTrip()
+	cb.updateMetrics()
 }
 
 // IsTripped returns whether the circuit breaker is currently tripped
@@ -221,4 +225,20 @@ type CircuitBreakerStats struct {
 	ErrorRate       float64
 	IsTripped       bool
 	LastTripTime    time.Time
+}
+
+// updateMetrics updates Prometheus metrics (must be called with lock held)
+func (cb *CircuitBreaker) updateMetrics() {
+	// Update circuit breaker status
+	if cb.isTripped {
+		metrics.CircuitBreakerTripped.Set(1)
+	} else {
+		metrics.CircuitBreakerTripped.Set(0)
+	}
+
+	// Update error rate
+	metrics.CircuitBreakerErrorRate.Set(cb.calculateErrorRate())
+
+	// Update total requests
+	metrics.CircuitBreakerTotalRequests.Set(float64(cb.totalRequests))
 }

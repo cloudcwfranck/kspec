@@ -1,0 +1,208 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kspec-alerts
+  namespace: kspec-system
+  labels:
+    app: kspec
+    prometheus: kube-prometheus
+spec:
+  groups:
+    - name: kspec.webhooks
+      interval: 30s
+      rules:
+        # Circuit Breaker Alerts
+        - alert: KSpecCircuitBreakerTripped
+          expr: kspec_circuit_breaker_tripped == 1
+          for: 1m
+          labels:
+            severity: critical
+            component: webhook
+          annotations:
+            summary: "KSpec webhook circuit breaker has tripped"
+            description: "The webhook circuit breaker is tripped due to high error rate (>50%). Webhooks are in fail-open mode."
+
+        - alert: KSpecHighWebhookErrorRate
+          expr: kspec_circuit_breaker_error_rate > 0.25
+          for: 5m
+          labels:
+            severity: warning
+            component: webhook
+          annotations:
+            summary: "High webhook error rate detected"
+            description: "Webhook error rate is {{ $value | humanizePercentage }} (threshold: 25%). Circuit breaker may trip soon."
+
+        - alert: KSpecWebhookLatencyHigh
+          expr: histogram_quantile(0.95, rate(kspec_webhook_request_duration_seconds_bucket[5m])) > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: webhook
+          annotations:
+            summary: "High webhook request latency"
+            description: "95th percentile webhook latency is {{ $value }}s (threshold: 1s)."
+
+        # Enforcement Alerts
+        - alert: KSpecHighPolicyDenialRate
+          expr: rate(kspec_webhook_validation_results_total{result="denied"}[5m]) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+            component: enforcement
+          annotations:
+            summary: "High rate of pod denials"
+            description: "Policy enforcement is denying {{ $value }} pods/sec. Check for misconfigured policies or non-compliant deployments."
+
+        - alert: KSpecPolicyEnforcementDisabled
+          expr: sum(kspec_active_cluster_specs{mode="enforce"}) == 0
+          for: 15m
+          labels:
+            severity: info
+            component: enforcement
+          annotations:
+            summary: "No ClusterSpecs in enforce mode"
+            description: "All ClusterSpecs are in monitor or audit mode. No active enforcement is happening."
+
+    - name: kspec.compliance
+      interval: 1m
+      rules:
+        # Compliance Alerts
+        - alert: KSpecLowComplianceScore
+          expr: kspec_compliance_score < 70
+          for: 10m
+          labels:
+            severity: warning
+            component: compliance
+          annotations:
+            summary: "Low compliance score for {{ $labels.cluster_name }}"
+            description: "Compliance score for {{ $labels.cluster_name }} (spec: {{ $labels.cluster_spec }}) is {{ $value }}% (threshold: 70%)."
+
+        - alert: KSpecCriticalComplianceScore
+          expr: kspec_compliance_score < 50
+          for: 5m
+          labels:
+            severity: critical
+            component: compliance
+          annotations:
+            summary: "Critical compliance score for {{ $labels.cluster_name }}"
+            description: "Compliance score for {{ $labels.cluster_name }} (spec: {{ $labels.cluster_spec }}) is {{ $value }}% (threshold: 50%). Immediate action required."
+
+        - alert: KSpecComplianceScoreDropping
+          expr: |
+            (
+              kspec_compliance_score
+              - kspec_compliance_score offset 1h
+            ) < -10
+          for: 5m
+          labels:
+            severity: warning
+            component: compliance
+          annotations:
+            summary: "Compliance score dropping for {{ $labels.cluster_name }}"
+            description: "Compliance score for {{ $labels.cluster_name }} has dropped by {{ $value }}% in the last hour."
+
+    - name: kspec.drift
+      interval: 1m
+      rules:
+        # Drift Detection Alerts
+        - alert: KSpecDriftDetected
+          expr: kspec_drift_detected == 1
+          for: 5m
+          labels:
+            severity: warning
+            component: drift
+          annotations:
+            summary: "Drift detected in {{ $labels.cluster_name }}"
+            description: "Configuration drift detected in {{ $labels.cluster_name }} (spec: {{ $labels.cluster_spec }})."
+
+        - alert: KSpecHighDriftEventRate
+          expr: kspec_drift_events_total > 50
+          for: 10m
+          labels:
+            severity: warning
+            component: drift
+          annotations:
+            summary: "High number of drift events in {{ $labels.cluster_name }}"
+            description: "{{ $labels.cluster_name }} has {{ $value }} drift events (threshold: 50)."
+
+    - name: kspec.controller
+      interval: 1m
+      rules:
+        # Controller Health Alerts
+        - alert: KSpecReconciliationFailures
+          expr: rate(kspec_reconcile_errors_total[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            component: controller
+          annotations:
+            summary: "High reconciliation error rate"
+            description: "Controller {{ $labels.controller }} is experiencing {{ $value }} errors/sec (threshold: 0.1/sec). Error type: {{ $labels.error_type }}"
+
+        - alert: KSpecReconciliationSlow
+          expr: histogram_quantile(0.95, rate(kspec_reconcile_duration_seconds_bucket[5m])) > 60
+          for: 10m
+          labels:
+            severity: warning
+            component: controller
+          annotations:
+            summary: "Slow reconciliation loops"
+            description: "95th percentile reconciliation duration for {{ $labels.controller }} is {{ $value }}s (threshold: 60s)."
+
+        - alert: KSpecScanDurationHigh
+          expr: histogram_quantile(0.95, rate(kspec_scan_duration_seconds_bucket[5m])) > 30
+          for: 10m
+          labels:
+            severity: warning
+            component: scanner
+          annotations:
+            summary: "High compliance scan duration"
+            description: "95th percentile scan duration for {{ $labels.cluster_name }} is {{ $value }}s (threshold: 30s)."
+
+    - name: kspec.cluster
+      interval: 1m
+      rules:
+        # Cluster Health Alerts
+        - alert: KSpecClusterTargetUnhealthy
+          expr: kspec_cluster_target_healthy == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: cluster
+          annotations:
+            summary: "ClusterTarget {{ $labels.cluster_name }} is unhealthy"
+            description: "Cannot connect to cluster {{ $labels.cluster_name }}. Check kubeconfig and network connectivity."
+
+        - alert: KSpecMultipleClustersDown
+          expr: sum(kspec_cluster_target_healthy == 0) > 2
+          for: 5m
+          labels:
+            severity: critical
+            component: cluster
+          annotations:
+            summary: "Multiple cluster targets are down"
+            description: "{{ $value }} cluster targets are unreachable. This may indicate a platform-wide issue."
+
+    - name: kspec.certificates
+      interval: 5m
+      rules:
+        # Certificate Alerts
+        - alert: KSpecCertificateProvisioningSlow
+          expr: histogram_quantile(0.95, rate(kspec_certificate_provisioning_duration_seconds_bucket[10m])) > 120
+          for: 10m
+          labels:
+            severity: warning
+            component: certificates
+          annotations:
+            summary: "Slow certificate provisioning"
+            description: "95th percentile certificate provisioning time is {{ $value }}s (threshold: 120s). Check cert-manager health."
+
+        - alert: KSpecHighCertificateRenewalRate
+          expr: rate(kspec_certificate_renewal_total[1h]) > 0.1
+          for: 15m
+          labels:
+            severity: warning
+            component: certificates
+          annotations:
+            summary: "High certificate renewal rate"
+            description: "Certificates are being renewed at {{ $value }}/hour. This may indicate certificate issues."

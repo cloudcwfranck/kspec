@@ -43,6 +43,17 @@ This release transforms kspec from a monitoring-only operator into a production-
 - **Panic recovery** - Catches and logs panics without crashing
 - **Thread-safe operations** - Mutex-protected state management
 
+#### Phase 5: Observability & Metrics
+- **Prometheus metrics** - Comprehensive metrics for webhooks, controllers, and enforcement
+- **Grafana dashboards** - Pre-built dashboard with 14 panels for visualization
+- **Alerting rules** - 20+ production-ready alerts for critical conditions
+- **ServiceMonitor** - Automatic Prometheus Operator integration
+- **Webhook metrics** - Request rate, latency, validation results, circuit breaker status
+- **Controller metrics** - Reconciliation duration, errors, scan performance
+- **Compliance metrics** - Score tracking, trend analysis, drift detection
+- **Certificate metrics** - Provisioning duration, renewal tracking
+- **Fleet metrics** - Multi-cluster aggregated statistics
+
 ### Changed
 
 - **CRD schema** - Added `spec.enforcement` and `spec.webhooks` fields

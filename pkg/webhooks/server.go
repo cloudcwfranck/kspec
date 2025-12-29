@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
+	"github.com/cloudcwfranck/kspec/pkg/metrics"
 )
 
 var (
@@ -80,11 +82,15 @@ func (s *Server) Start(ctx context.Context) error {
 
 // handleValidate handles admission review requests for pod validation
 func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
 	ctx := r.Context()
 	log := log.FromContext(ctx)
 
 	// Check circuit breaker
 	if s.CircuitBreaker.IsTripped() {
+		metrics.WebhookRequestsTotal.WithLabelValues("circuit_breaker_tripped").Inc()
+		metrics.WebhookRequestDuration.WithLabelValues("circuit_breaker_tripped").Observe(time.Since(startTime).Seconds())
+
 		log.Info("Circuit breaker tripped, allowing request with warning")
 		// Fail-open: allow request but warn
 		response := &admissionv1.AdmissionReview{
@@ -108,6 +114,8 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
 			s.CircuitBreaker.RecordError()
+			metrics.WebhookRequestsTotal.WithLabelValues("error").Inc()
+			metrics.WebhookRequestDuration.WithLabelValues("error").Observe(time.Since(startTime).Seconds())
 			log.Error(fmt.Errorf("panic in validation: %v", r), "Panic recovered")
 		}
 	}()
@@ -116,6 +124,8 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		s.CircuitBreaker.RecordError()
+		metrics.WebhookRequestsTotal.WithLabelValues("error").Inc()
+		metrics.WebhookRequestDuration.WithLabelValues("error").Observe(time.Since(startTime).Seconds())
 		log.Error(err, "Failed to read request body")
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
@@ -127,6 +137,8 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	deserializer := codecs.UniversalDeserializer()
 	if _, _, err := deserializer.Decode(body, nil, admissionReview); err != nil {
 		s.CircuitBreaker.RecordError()
+		metrics.WebhookRequestsTotal.WithLabelValues("error").Inc()
+		metrics.WebhookRequestDuration.WithLabelValues("error").Observe(time.Since(startTime).Seconds())
 		log.Error(err, "Failed to decode admission review")
 		http.Error(w, "Failed to decode admission review", http.StatusBadRequest)
 		return
@@ -149,6 +161,8 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	responseBytes, err := json.Marshal(responseReview)
 	if err != nil {
 		s.CircuitBreaker.RecordError()
+		metrics.WebhookRequestsTotal.WithLabelValues("error").Inc()
+		metrics.WebhookRequestDuration.WithLabelValues("error").Observe(time.Since(startTime).Seconds())
 		log.Error(err, "Failed to marshal response")
 		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
 		return
@@ -156,6 +170,8 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 
 	// Record success
 	s.CircuitBreaker.RecordSuccess()
+	metrics.WebhookRequestsTotal.WithLabelValues("success").Inc()
+	metrics.WebhookRequestDuration.WithLabelValues("success").Observe(time.Since(startTime).Seconds())
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -218,6 +234,8 @@ func (s *Server) validate(ctx context.Context, request *admissionv1.AdmissionReq
 		if allowed, reason := s.validatePodAgainstSpec(ctx, pod, &clusterSpec); !allowed {
 			// In audit mode, allow but warn
 			if clusterSpec.Spec.Enforcement.Mode == "audit" {
+				metrics.WebhookValidationResults.WithLabelValues("allowed", "audit").Inc()
+				metrics.PolicyEnforcementActions.WithLabelValues(clusterSpec.Name, "warned").Inc()
 				log.Info("Pod violates ClusterSpec (audit mode)",
 					"pod", pod.Name,
 					"namespace", pod.Namespace,
@@ -230,6 +248,8 @@ func (s *Server) validate(ctx context.Context, request *admissionv1.AdmissionReq
 			}
 
 			// In enforce mode, deny
+			metrics.WebhookValidationResults.WithLabelValues("denied", "enforce").Inc()
+			metrics.PolicyEnforcementActions.WithLabelValues(clusterSpec.Name, "denied").Inc()
 			log.Info("Pod violates ClusterSpec (enforce mode)",
 				"pod", pod.Name,
 				"namespace", pod.Namespace,
@@ -245,6 +265,7 @@ func (s *Server) validate(ctx context.Context, request *admissionv1.AdmissionReq
 	}
 
 	// Pod is valid
+	metrics.WebhookValidationResults.WithLabelValues("allowed", "valid").Inc()
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,
 	}

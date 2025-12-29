@@ -185,6 +185,32 @@ var (
 		},
 		[]string{"report_type", "cluster_name"}, // compliance, drift
 	)
+
+	// KyvernoPolicyCreated tracks Kyverno policy creation (Phase 5)
+	KyvernoPolicyCreated = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kspec_kyverno_policy_created_total",
+			Help: "Total number of Kyverno policies created",
+		},
+		[]string{"cluster_spec", "policy_type"},
+	)
+
+	// CertificateProvisioningDuration tracks certificate provisioning time (Phase 5)
+	CertificateProvisioningDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "kspec_certificate_provisioning_duration_seconds",
+			Help:    "Time to provision webhook certificates",
+			Buckets: []float64{1, 5, 10, 30, 60, 120, 300},
+		},
+	)
+
+	// CertificateRenewalTotal tracks certificate renewals (Phase 5)
+	CertificateRenewalTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "kspec_certificate_renewal_total",
+			Help: "Total number of certificate renewals",
+		},
+	)
 )
 
 func init() {
@@ -208,6 +234,9 @@ func init() {
 		ReconcileDuration,
 		FleetSummaryTotal,
 		ReportsGenerated,
+		KyvernoPolicyCreated,
+		CertificateProvisioningDuration,
+		CertificateRenewalTotal,
 	)
 }
 
