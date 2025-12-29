@@ -8,8 +8,13 @@ metadata:
 rules:
   # Core resources for scanning
   - apiGroups: [""]
-    resources: ["namespaces", "pods", "services", "serviceaccounts", "configmaps", "secrets"]
+    resources: ["namespaces", "pods", "services", "serviceaccounts", "secrets"]
     verbs: ["get", "list", "watch"]
+
+  # ConfigMaps for scanning and leader election
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 
   # Workload resources for scanning
   - apiGroups: ["apps"]
@@ -60,3 +65,13 @@ rules:
   - apiGroups: ["kspec.io"]
     resources: ["clusterspecifications/finalizers"]
     verbs: ["update"]
+
+  # Leader election (Phase 8: High Availability)
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Events for leader election and controller events
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]

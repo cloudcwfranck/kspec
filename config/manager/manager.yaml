@@ -8,7 +8,12 @@ metadata:
     app.kubernetes.io/component: operator
     app.kubernetes.io/version: v0.2.0
 spec:
-  replicas: 1
+  replicas: 3  # Phase 8: High Availability with leader election
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: kspec-operator
@@ -25,6 +30,28 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: kspec-operator
+      # Phase 8: Pod anti-affinity for HA - spread replicas across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - kspec-operator
+                topologyKey: kubernetes.io/hostname
+            - weight: 50
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - kspec-operator
+                topologyKey: topology.kubernetes.io/zone
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -40,6 +67,10 @@ spec:
             - --metrics-bind-address=:8080
             - --health-probe-bind-address=:8081
             - --enable-webhooks=false
+            - --leader-elect=true
+            - --leader-election-lease-duration=15s
+            - --leader-election-renew-deadline=10s
+            - --leader-election-retry-period=2s
           ports:
             - containerPort: 8080
               name: metrics
@@ -84,4 +115,4 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 30  # Phase 8: Increased for graceful shutdown during failover

@@ -78,12 +78,27 @@ This release transforms kspec from a monitoring-only operator into a production-
 - **Automatic expiration** - Exemptions expire automatically after specified time
 - **Resource selectors** - Fine-grained exemption targeting by kind, name, namespace, or labels
 
+#### Phase 8: High Availability & Leader Election
+- **Leader election** - Raft-based leader election for controller manager using Kubernetes leases
+- **Multi-replica deployments** - 3 replicas with automatic failover for production-grade reliability
+- **Pod anti-affinity** - Intelligent replica spreading across nodes and availability zones
+- **PodDisruptionBudget** - Ensures minimum availability during node maintenance and cluster upgrades
+- **Rolling updates** - Zero-downtime upgrades with controlled replica replacement (maxUnavailable: 1)
+- **Graceful shutdown** - 30-second termination grace period for clean reconciliation loop exits
+- **Configurable leader election** - Tunable lease duration (15s), renew deadline (10s), and retry period (2s)
+- **Leader election metrics** - Prometheus metrics for leadership status, transitions, and active instances
+- **RBAC for coordination** - Permissions for leases, configmaps, and events resources
+- **Automatic failover** - Sub-15-second failover when leader becomes unavailable
+
 ### Changed
 
 - **CRD schema** - Added `spec.enforcement` and `spec.webhooks` fields
 - **Controller** - Integrated policy, certificate, and webhook management
-- **RBAC** - Added permissions for Kyverno policies, certificates, webhooks
+- **RBAC** - Added permissions for Kyverno policies, certificates, webhooks, leases, and events
 - **Status** - Enhanced with enforcement and webhook state tracking
+- **Deployment replicas** - Increased from 1 to 3 for high availability (Phase 8)
+- **Leader election** - Enabled by default for all deployments (Phase 8)
+- **Termination grace period** - Increased from 10s to 30s for graceful shutdown (Phase 8)
 
 ### Security
 

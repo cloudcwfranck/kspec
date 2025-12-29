@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -55,13 +56,27 @@ func main() {
 	var enableLeaderElection bool
 	var enableWebhooks bool
 	var probeAddr string
+	var leaderElectionNamespace string
+	var leaseDuration time.Duration
+	var renewDeadline time.Duration
+	var retryPeriod time.Duration
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&enableWebhooks, "enable-webhooks", true,
 		"Enable admission webhooks for real-time validation")
+	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "",
+		"Namespace where the leader election resource will be created. Defaults to the same namespace where the manager runs.")
+	flag.DurationVar(&leaseDuration, "leader-election-lease-duration", 15*time.Second,
+		"Duration that non-leader candidates will wait to force acquire leadership")
+	flag.DurationVar(&renewDeadline, "leader-election-renew-deadline", 10*time.Second,
+		"Duration that the acting leader will retry refreshing leadership before giving up")
+	flag.DurationVar(&retryPeriod, "leader-election-retry-period", 2*time.Second,
+		"Duration the LeaderElector clients should wait between tries of actions")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -75,9 +90,14 @@ func main() {
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "kspec-operator-lock",
+		HealthProbeBindAddress:        probeAddr,
+		LeaderElection:                enableLeaderElection,
+		LeaderElectionID:              "kspec-operator-lock",
+		LeaderElectionNamespace:       leaderElectionNamespace,
+		LeaderElectionReleaseOnCancel: true,
+		LeaseDuration:                 &leaseDuration,
+		RenewDeadline:                 &renewDeadline,
+		RetryPeriod:                   &retryPeriod,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -138,7 +158,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	setupLog.Info("starting manager", "leaderElection", enableLeaderElection,
+		"leaseDuration", leaseDuration,
+		"renewDeadline", renewDeadline,
+		"retryPeriod", retryPeriod)
+
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

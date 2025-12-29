@@ -211,6 +211,30 @@ var (
 			Help: "Total number of certificate renewals",
 		},
 	)
+
+	// LeaderElectionStatus indicates if this instance is the leader (Phase 8)
+	LeaderElectionStatus = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "kspec_leader_election_status",
+			Help: "Indicates if this manager instance is the leader (1=leader, 0=follower)",
+		},
+	)
+
+	// LeaderElectionTransitionsTotal tracks leader election transitions (Phase 8)
+	LeaderElectionTransitionsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "kspec_leader_election_transitions_total",
+			Help: "Total number of leader election transitions (gained or lost leadership)",
+		},
+	)
+
+	// ActiveManagerInstances tracks the number of running manager instances (Phase 8)
+	ActiveManagerInstances = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "kspec_active_manager_instances",
+			Help: "Number of active kspec-operator manager instances",
+		},
+	)
 )
 
 func init() {
@@ -237,6 +261,9 @@ func init() {
 		KyvernoPolicyCreated,
 		CertificateProvisioningDuration,
 		CertificateRenewalTotal,
+		LeaderElectionStatus,
+		LeaderElectionTransitionsTotal,
+		ActiveManagerInstances,
 	)
 }
 
@@ -397,4 +424,23 @@ func UpdateFleetMetrics(totalClusters, healthyClusters, totalChecks, passedCheck
 	FleetSummaryTotal.With(prometheus.Labels{"metric_type": "checks_passed"}).Set(float64(passedChecks))
 	FleetSummaryTotal.With(prometheus.Labels{"metric_type": "checks_failed"}).Set(float64(failedChecks))
 	FleetSummaryTotal.With(prometheus.Labels{"metric_type": "clusters_with_drift"}).Set(float64(clustersWithDrift))
+}
+
+// RecordLeaderElectionStatus records leader election status (Phase 8)
+func RecordLeaderElectionStatus(isLeader bool) {
+	if isLeader {
+		LeaderElectionStatus.Set(1)
+	} else {
+		LeaderElectionStatus.Set(0)
+	}
+}
+
+// RecordLeaderElectionTransition records a leader election transition (Phase 8)
+func RecordLeaderElectionTransition() {
+	LeaderElectionTransitionsTotal.Inc()
+}
+
+// UpdateActiveManagerInstances updates the number of active manager instances (Phase 8)
+func UpdateActiveManagerInstances(count int) {
+	ActiveManagerInstances.Set(float64(count))
 }
