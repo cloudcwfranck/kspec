@@ -35,6 +35,7 @@ import (
 	"github.com/cloudcwfranck/kspec/pkg/audit"
 	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
 	"github.com/cloudcwfranck/kspec/pkg/drift"
+	"github.com/cloudcwfranck/kspec/pkg/enforcer/kyverno"
 	"github.com/cloudcwfranck/kspec/pkg/metrics"
 	"github.com/cloudcwfranck/kspec/pkg/scanner"
 	"github.com/cloudcwfranck/kspec/pkg/scanner/checks"
@@ -233,6 +234,32 @@ func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
+	// Step 5.5: Manage policy enforcement (v0.3.0)
+	policiesGenerated := 0
+	if clusterInfo.AllowEnforcement {
+		log.Info("Managing policy enforcement")
+		if err := r.managePolicyEnforcement(ctx, &clusterSpec, dynamicClient); err != nil {
+			log.Error(err, "Failed to manage policy enforcement")
+			// Continue even if policy enforcement fails (non-fatal)
+		} else {
+			// Count generated policies for status
+			if clusterSpec.Spec.Enforcement != nil && clusterSpec.Spec.Enforcement.Enabled {
+				generator := kyverno.NewGenerator()
+				specForCounting := &spec.ClusterSpecification{
+					Metadata: spec.Metadata{Name: clusterSpec.Name},
+					Spec:     clusterSpec.Spec.SpecFields,
+				}
+				policies, _ := generator.GeneratePolicies(specForCounting)
+				policiesGenerated = len(policies)
+			}
+		}
+	} else {
+		log.Info("Skipping policy enforcement (enforcement not allowed on this cluster)")
+	}
+
+	// Update enforcement status
+	r.updateEnforcementStatus(ctx, &clusterSpec, policiesGenerated)
+
 	// Step 6: Update ClusterSpecification status
 	if err := r.updateStatus(ctx, &clusterSpec, scanResult, driftReport); err != nil {
 		log.Error(err, "Failed to update status")
@@ -302,9 +329,18 @@ func (r *ClusterSpecReconciler) handleDeletion(ctx context.Context, clusterSpec 
 		log.Info("Cleaned up DriftReports", "count", len(driftReports.Items))
 	}
 
-	// TODO: Optionally remove enforced policies
-	// For now, we leave policies in place for safety
-	// In production, this could be configurable
+	// Clean up policies (v0.3.0)
+	// Create clients for policy cleanup
+	_, dynamicClient, _, err := r.ClientFactory.CreateClientsForClusterSpec(ctx, clusterSpec)
+	if err != nil {
+		log.Error(err, "Failed to create clients for policy cleanup")
+		// Continue even if we can't clean up policies
+	} else {
+		if err := r.cleanupPolicies(ctx, clusterSpec, dynamicClient); err != nil {
+			log.Error(err, "Failed to cleanup policies")
+			// Continue even if cleanup fails
+		}
+	}
 
 	// Remove finalizer
 	controllerutil.RemoveFinalizer(clusterSpec, FinalizerName)

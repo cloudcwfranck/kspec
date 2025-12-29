@@ -3,6 +3,7 @@ package kyverno
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // ClusterPolicy defines a Kyverno cluster policy.
@@ -188,5 +189,23 @@ func (s *ClusterPolicySpec) DeepCopyInto(out *ClusterPolicySpec) {
 		in, out := &s.Rules, &out.Rules
 		*out = make([]Rule, len(*in))
 		copy(*out, *in)
+	}
+}
+
+// ClusterPolicyGVR returns the GroupVersionResource for ClusterPolicy.
+func ClusterPolicyGVR() schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    "kyverno.io",
+		Version:  "v1",
+		Resource: "clusterpolicies",
+	}
+}
+
+// GroupVersionKind returns the GroupVersionKind for ClusterPolicy.
+func (c *ClusterPolicy) GroupVersionKind() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   "kyverno.io",
+		Version: "v1",
+		Kind:    "ClusterPolicy",
 	}
 }
