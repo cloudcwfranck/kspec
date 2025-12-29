@@ -70,6 +70,8 @@ type ClusterSpecReconciler struct {
 // +kubebuilder:rbac:groups=kspec.io,resources=compliancereports,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kspec.io,resources=driftreports,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kyverno.io,resources=clusterpolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=namespaces;pods;serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=get;list;watch
 
@@ -260,6 +262,23 @@ func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Update enforcement status
 	r.updateEnforcementStatus(ctx, &clusterSpec, policiesGenerated)
 
+	// Step 5.6: Manage webhook certificates (v0.3.0 Phase 2)
+	certificateReady := false
+	if clusterInfo.AllowEnforcement {
+		log.Info("Managing webhook certificates")
+		certReady, err := r.manageCertificate(ctx, &clusterSpec, dynamicClient)
+		if err != nil {
+			log.Error(err, "Failed to manage certificate")
+			// Continue even if certificate management fails (non-fatal)
+		}
+		certificateReady = certReady
+	} else {
+		log.Info("Skipping certificate management (enforcement not allowed on this cluster)")
+	}
+
+	// Update webhook status
+	r.updateWebhookStatus(ctx, &clusterSpec, certificateReady)
+
 	// Step 6: Update ClusterSpecification status
 	if err := r.updateStatus(ctx, &clusterSpec, scanResult, driftReport); err != nil {
 		log.Error(err, "Failed to update status")
@@ -329,15 +348,22 @@ func (r *ClusterSpecReconciler) handleDeletion(ctx context.Context, clusterSpec 
 		log.Info("Cleaned up DriftReports", "count", len(driftReports.Items))
 	}
 
-	// Clean up policies (v0.3.0)
-	// Create clients for policy cleanup
+	// Clean up policies and certificates (v0.3.0)
+	// Create clients for cleanup
 	_, dynamicClient, _, err := r.ClientFactory.CreateClientsForClusterSpec(ctx, clusterSpec)
 	if err != nil {
-		log.Error(err, "Failed to create clients for policy cleanup")
-		// Continue even if we can't clean up policies
+		log.Error(err, "Failed to create clients for cleanup")
+		// Continue even if we can't clean up policies/certificates
 	} else {
+		// Clean up policies
 		if err := r.cleanupPolicies(ctx, clusterSpec, dynamicClient); err != nil {
 			log.Error(err, "Failed to cleanup policies")
+			// Continue even if cleanup fails
+		}
+
+		// Clean up certificate (Phase 2)
+		if err := r.cleanupCertificate(ctx, dynamicClient); err != nil {
+			log.Error(err, "Failed to cleanup certificate")
 			// Continue even if cleanup fails
 		}
 	}
