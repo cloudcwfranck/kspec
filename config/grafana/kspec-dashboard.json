@@ -1,0 +1,298 @@
+{
+  "dashboard": {
+    "title": "KSpec Policy Enforcement Platform",
+    "tags": ["kspec", "compliance", "policy", "kubernetes"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Webhook Request Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(kspec_webhook_requests_total[5m])",
+            "legendFormat": "{{result}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Requests/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Circuit Breaker Status",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "kspec_circuit_breaker_tripped",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "red"}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "value": "0", "text": "Normal"},
+              {"type": "value", "value": "1", "text": "TRIPPED"}
+            ]
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "kspec_circuit_breaker_error_rate",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 0.25, "color": "yellow"},
+                {"value": 0.5, "color": "red"}
+              ]
+            },
+            "unit": "percentunit"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Webhook Request Duration (p95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(kspec_webhook_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{result}} - p95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(kspec_webhook_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{result}} - p50",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Validation Results",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "sum by (result) (rate(kspec_webhook_validation_results_total[5m]))",
+            "legendFormat": "{{result}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Compliance Score by Cluster",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "kspec_compliance_score",
+            "legendFormat": "{{cluster_name}} - {{cluster_spec}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "label": "Score", "max": 100, "min": 0},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Policy Enforcement Actions",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(kspec_policy_enforcement_actions_total[5m])",
+            "legendFormat": "{{policy}} - {{action}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Actions/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Reconciliation Duration",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(kspec_reconcile_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{controller}} - p95",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Reconciliation Errors",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "rate(kspec_reconcile_errors_total[5m])",
+            "legendFormat": "{{controller}} - {{error_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Errors/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Drift Detection",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "sum(kspec_drift_detected)",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "orange"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "Total Drift Events",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 32},
+        "targets": [
+          {
+            "expr": "kspec_drift_events_total",
+            "legendFormat": "{{cluster_name}} - {{cluster_spec}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Cluster Targets Health",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 32},
+        "targets": [
+          {
+            "expr": "kspec_cluster_target_healthy",
+            "legendFormat": "{{cluster_name}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "value": "0", "text": "Unhealthy"},
+              {"type": "value", "value": "1", "text": "Healthy"}
+            ]
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Certificate Provisioning Duration",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(kspec_certificate_provisioning_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Active ClusterSpecs by Mode",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "targets": [
+          {
+            "expr": "sum by (mode) (kspec_active_cluster_specs)",
+            "legendFormat": "{{mode}}",
+            "refId": "A"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}
