@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: clusterspecifications.kspec.io
 spec:
   group: kspec.io
@@ -156,6 +156,30 @@ spec:
                       type: object
                     type: array
                 type: object
+              enforcement:
+                description: Enforcement defines enforcement behavior for this specification
+                properties:
+                  autoRemediate:
+                    default: false
+                    description: AutoRemediate enables automatic remediation of violations
+                    type: boolean
+                  enabled:
+                    default: false
+                    description: Enabled controls whether enforcement is active
+                    type: boolean
+                  mode:
+                    default: monitor
+                    description: |-
+                      Mode defines the enforcement mode: monitor, audit, enforce
+                      monitor: no enforcement, only monitoring
+                      audit: log violations but don't block
+                      enforce: actively block violations
+                    enum:
+                    - monitor
+                    - audit
+                    - enforce
+                    type: string
+                type: object
               kubernetes:
                 description: KubernetesSpec defines Kubernetes version requirements.
                 properties:
@@ -302,6 +326,45 @@ spec:
                       type: object
                     type: array
                 type: object
+              webhooks:
+                description: Webhooks configures admission webhook behavior
+                properties:
+                  certificate:
+                    description: Certificate configures TLS certificate for webhooks
+                    properties:
+                      issuer:
+                        description: Issuer is the name of the cert-manager Issuer/ClusterIssuer
+                        type: string
+                      issuerKind:
+                        default: ClusterIssuer
+                        description: IssuerKind is the kind of issuer (Issuer or ClusterIssuer)
+                        enum:
+                        - Issuer
+                        - ClusterIssuer
+                        type: string
+                    type: object
+                  enabled:
+                    default: false
+                    description: Enabled controls whether admission webhooks are active
+                    type: boolean
+                  failurePolicy:
+                    default: Ignore
+                    description: |-
+                      FailurePolicy defines behavior when webhook fails: Ignore or Fail
+                      Ignore: continue on webhook failure (fail-open, safe default)
+                      Fail: reject request on webhook failure (fail-closed)
+                    enum:
+                    - Ignore
+                    - Fail
+                    type: string
+                  timeoutSeconds:
+                    default: 10
+                    description: TimeoutSeconds is the webhook timeout in seconds
+                    format: int32
+                    maximum: 30
+                    minimum: 1
+                    type: integer
+                type: object
               workloads:
                 description: WorkloadsSpec defines workload security requirements.
                 properties:
@@ -375,16 +438,8 @@ spec:
                 description: Conditions represent the latest available observations
                   of the ClusterSpecification's state
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -425,12 +480,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -445,6 +495,27 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              enforcement:
+                description: Enforcement tracks enforcement state
+                properties:
+                  active:
+                    description: Active indicates if enforcement is currently active
+                    type: boolean
+                  lastEnforcementTime:
+                    description: LastEnforcementTime is when enforcement was last
+                      updated
+                    format: date-time
+                    type: string
+                  mode:
+                    description: Mode is the current enforcement mode
+                    type: string
+                  policiesGenerated:
+                    description: PoliciesGenerated is the number of Kyverno policies
+                      generated
+                    type: integer
+                required:
+                - active
+                type: object
               lastScanTime:
                 description: LastScanTime is the timestamp of the last compliance
                   scan
@@ -487,6 +558,27 @@ spec:
                 - failedChecks
                 - passedChecks
                 - totalChecks
+                type: object
+              webhooks:
+                description: Webhooks tracks webhook state
+                properties:
+                  active:
+                    description: Active indicates if webhooks are currently active
+                    type: boolean
+                  certificateReady:
+                    description: CertificateReady indicates if TLS certificate is
+                      ready
+                    type: boolean
+                  circuitBreakerTripped:
+                    description: CircuitBreakerTripped indicates if circuit breaker
+                      is active
+                    type: boolean
+                  errorRate:
+                    description: ErrorRate is the webhook error rate (0.0-1.0)
+                    type: number
+                required:
+                - active
+                - certificateReady
                 type: object
             type: object
         type: object
