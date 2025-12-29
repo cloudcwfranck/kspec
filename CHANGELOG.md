@@ -54,6 +54,18 @@ This release transforms kspec from a monitoring-only operator into a production-
 - **Certificate metrics** - Provisioning duration, renewal tracking
 - **Fleet metrics** - Multi-cluster aggregated statistics
 
+#### Phase 6: Multi-Cluster Enforcement
+- **Remote webhook deployment** - Deploy webhook servers to target clusters
+- **Cross-cluster policy synchronization** - Replicate Kyverno policies across fleet
+- **Fleet-wide compliance aggregation** - Collect and aggregate compliance data from all clusters
+- **Multi-cluster coordination** - Central controller manages enforcement across clusters
+- **ClusterTarget integration** - Leverages existing ClusterTarget CRD for remote access
+- **Centralized management** - Single control plane for fleet-wide policy enforcement
+- **Parallel processing** - Concurrent sync operations across multiple clusters
+- **Policy consistency validation** - Ensures policies are identical across fleet
+- **High availability** - 2-replica webhook deployments in remote clusters
+- **Automatic cleanup** - Removes enforcement resources when ClusterSpec is deleted
+
 ### Changed
 
 - **CRD schema** - Added `spec.enforcement` and `spec.webhooks` fields
