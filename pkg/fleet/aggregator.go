@@ -23,15 +23,15 @@ type FleetAggregator struct {
 
 // FleetSummary contains aggregated fleet-wide statistics
 type FleetSummary struct {
-	TotalClusters      int
-	HealthyClusters    int
-	TotalChecks        int
-	PassedChecks       int
-	FailedChecks       int
-	ClustersWithDrift  int
-	AverageCompliance  float64
-	ClusterReports     []ClusterReport
-	LastUpdated        time.Time
+	TotalClusters     int
+	HealthyClusters   int
+	TotalChecks       int
+	PassedChecks      int
+	FailedChecks      int
+	ClustersWithDrift int
+	AverageCompliance float64
+	ClusterReports    []ClusterReport
+	LastUpdated       time.Time
 }
 
 // ClusterReport contains per-cluster statistics
