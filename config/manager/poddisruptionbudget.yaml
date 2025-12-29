@@ -1,0 +1,16 @@
+# Phase 8: PodDisruptionBudget for High Availability
+# Ensures at least 1 replica is available during disruptions (node drains, upgrades, etc.)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kspec-operator
+  namespace: kspec-system
+  labels:
+    app.kubernetes.io/name: kspec-operator
+    app.kubernetes.io/component: operator
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kspec-operator
+      app.kubernetes.io/component: operator
