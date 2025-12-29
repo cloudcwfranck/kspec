@@ -8,7 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
 )
 
 // PolicyTemplate represents a reusable policy template with parameters
@@ -22,11 +21,11 @@ type PolicyTemplate struct {
 
 // TemplateParameter defines a configurable parameter in a template
 type TemplateParameter struct {
-	Name         string
-	Description  string
-	Type         string // string, int, bool, array
-	Default      interface{}
-	Required     bool
+	Name          string
+	Description   string
+	Type          string // string, int, bool, array
+	Default       interface{}
+	Required      bool
 	AllowedValues []interface{}
 }
 
@@ -73,18 +72,18 @@ type TimeBasedActivation struct {
 
 // TimePeriod defines a time range for policy activation
 type TimePeriod struct {
-	StartTime string // e.g., "09:00"
-	EndTime   string // e.g., "17:00"
+	StartTime  string   // e.g., "09:00"
+	EndTime    string   // e.g., "17:00"
 	DaysOfWeek []string // e.g., ["Monday", "Tuesday", "Wednesday"]
-	StartDate *metav1.Time
-	EndDate   *metav1.Time
+	StartDate  *metav1.Time
+	EndDate    *metav1.Time
 }
 
 // PolicyExemption defines resources exempt from policy enforcement
 type PolicyExemption struct {
-	Name      string
-	Reason    string
-	ExpiresAt *metav1.Time
+	Name       string
+	Reason     string
+	ExpiresAt  *metav1.Time
 	Namespaces []string
 	Resources  []ResourceSelector
 	Approver   string

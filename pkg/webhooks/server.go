@@ -249,8 +249,8 @@ func (s *Server) validate(ctx context.Context, request *admissionv1.AdmissionReq
 		// Phase 7: Check time-based activation
 		if clusterSpec.Spec.TimeBasedActivation != nil && clusterSpec.Spec.TimeBasedActivation.Enabled {
 			timeConfig := &policy.TimeBasedActivation{
-				Enabled:   true,
-				Timezone:  clusterSpec.Spec.TimeBasedActivation.Timezone,
+				Enabled:       true,
+				Timezone:      clusterSpec.Spec.TimeBasedActivation.Timezone,
 				ActivePeriods: convertTimePeriods(clusterSpec.Spec.TimeBasedActivation.ActivePeriods),
 			}
 			if !s.PolicyManager.IsActiveInTimeWindow(timeConfig, time.Now()) {
