@@ -67,6 +67,14 @@ func (f *ClusterClientFactory) CreateClientsForClusterSpec(
 	return f.createRemoteClients(ctx, clusterTarget)
 }
 
+// CreateClientsForClusterTarget creates Kubernetes clients for a ClusterTarget
+func (f *ClusterClientFactory) CreateClientsForClusterTarget(
+	ctx context.Context,
+	target *kspecv1alpha1.ClusterTarget,
+) (kubernetes.Interface, dynamic.Interface, *ClusterInfo, error) {
+	return f.createRemoteClients(ctx, target)
+}
+
 // createLocalClients creates clients for the local cluster
 func (f *ClusterClientFactory) createLocalClients(ctx context.Context) (kubernetes.Interface, dynamic.Interface, *ClusterInfo, error) {
 	kubeClient, err := kubernetes.NewForConfig(f.localConfig)
