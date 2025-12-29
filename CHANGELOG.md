@@ -129,6 +129,66 @@ This is the first public release of kspec, a Kubernetes Cluster Compliance Enfor
 - **Efficient policy generation** - Minimal API calls
 - **Graceful error handling** - Continues on non-critical failures
 
+## [0.2.1] - 2025-12-28
+
+### 🔧 Stability Patch Release
+
+This patch release fixes critical installation and usability issues found in v0.2.0, ensuring a smooth out-of-box experience for new users.
+
+### Fixed
+
+**Installation Issues**:
+- ✅ **Namespace creation** - Added `config/default/namespace.yaml` so `kspec-system` namespace is created automatically
+  - Previously: Users encountered "namespace not found" errors
+  - Now: Namespace created as part of `kubectl apply -k` command
+- ✅ **Image tag consistency** - Standardized on `0.2.1` format (no `v` prefix) across all manifests and documentation
+  - Operator image: `ghcr.io/cloudcwfranck/kspec-operator:0.2.1`
+  - Eliminates ImagePullBackOff errors from tag mismatches
+- ✅ **Kustomize deprecation warning** - Replaced `commonLabels` with `labels` syntax
+  - Removes warning: "commonLabels is deprecated, use labels instead"
+
+**Sample ClusterSpecification**:
+- ✅ **CRD compatibility** - Simplified sample to only include fields accepted by CRD schema
+  - Removed fields: `admission.requireKyverno`, `admission.requirePolicyReports`, `observability.requirePrometheusMonitoring`, `compliance.frameworks`
+  - Added required fields: `kubernetes.maxVersion`, `podSecurity.audit`, `podSecurity.warn`
+  - Changed `workloads.containers.required[].value` from boolean to string (matches CRD schema)
+- ✅ **Stricter validation** - Sample now passes CRD strict decoding without "unknown field" errors
+
+**Quality Assurance**:
+- ✅ **Smoke test script** - Added `scripts/v0.2.1_smoke.sh` for automated end-to-end testing
+  - Creates kind cluster
+  - Installs operator
+  - Applies sample ClusterSpec
+  - Verifies ComplianceReport creation
+  - Tests finalizer cleanup
+  - Uninstalls cleanly
+  - Exits non-zero on any failure
+
+### Changed
+- Updated all documentation to reference `v0.2.1`
+- Sample ClusterSpecification name changed from `production-cluster` to `clusterspecification-sample`
+- Relaxed security defaults in sample for easier first-time use (e.g., `podSecurity: baseline` instead of `restricted`)
+
+### Verification
+All changes verified with:
+- Unit tests: `go test ./...`
+- Smoke test: `./scripts/v0.2.1_smoke.sh` on fresh kind cluster
+- Manual verification of install → apply → report → uninstall flow
+
+### Migration from v0.2.0
+If you installed v0.2.0, you can upgrade to v0.2.1 by:
+```bash
+# Uninstall v0.2.0
+kubectl delete -k github.com/cloudcwfranck/kspec/config/default?ref=v0.2.0
+
+# Install v0.2.1
+kubectl apply -k github.com/cloudcwfranck/kspec/config/default?ref=v0.2.1
+```
+
+**Note**: ClusterSpecification CRs created in v0.2.0 remain compatible with v0.2.1.
+
+---
+
 ## [0.2.0] - 2025-12-27
 
 ### 🎉 Kubernetes Operator Release
