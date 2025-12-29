@@ -30,15 +30,17 @@ func init() {
 
 // Server implements the admission webhook server
 type Server struct {
-	Client client.Client
-	Port   int
+	Client         client.Client
+	Port           int
+	CircuitBreaker *CircuitBreaker
 }
 
 // NewServer creates a new webhook server
 func NewServer(client client.Client, port int) *Server {
 	return &Server{
-		Client: client,
-		Port:   port,
+		Client:         client,
+		Port:           port,
+		CircuitBreaker: NewCircuitBreaker(),
 	}
 }
 
@@ -50,6 +52,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/validate", s.handleValidate)
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/readyz", s.handleReadyz)
+	mux.HandleFunc("/metrics", s.handleMetrics)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", s.Port),
@@ -80,9 +83,39 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := log.FromContext(ctx)
 
+	// Check circuit breaker
+	if s.CircuitBreaker.IsTripped() {
+		log.Info("Circuit breaker tripped, allowing request with warning")
+		// Fail-open: allow request but warn
+		response := &admissionv1.AdmissionReview{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "admission.k8s.io/v1",
+				Kind:       "AdmissionReview",
+			},
+			Response: &admissionv1.AdmissionResponse{
+				Allowed:  true,
+				Warnings: []string{"Webhook validation temporarily disabled due to high error rate"},
+			},
+		}
+		responseBytes, _ := json.Marshal(response)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBytes)
+		return
+	}
+
+	// Track validation success/failure
+	defer func() {
+		if r := recover(); r != nil {
+			s.CircuitBreaker.RecordError()
+			log.Error(fmt.Errorf("panic in validation: %v", r), "Panic recovered")
+		}
+	}()
+
 	// Read request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		s.CircuitBreaker.RecordError()
 		log.Error(err, "Failed to read request body")
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
@@ -93,6 +126,7 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	admissionReview := &admissionv1.AdmissionReview{}
 	deserializer := codecs.UniversalDeserializer()
 	if _, _, err := deserializer.Decode(body, nil, admissionReview); err != nil {
+		s.CircuitBreaker.RecordError()
 		log.Error(err, "Failed to decode admission review")
 		http.Error(w, "Failed to decode admission review", http.StatusBadRequest)
 		return
@@ -114,10 +148,14 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	// Encode and send response
 	responseBytes, err := json.Marshal(responseReview)
 	if err != nil {
+		s.CircuitBreaker.RecordError()
 		log.Error(err, "Failed to marshal response")
 		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
 		return
 	}
+
+	// Record success
+	s.CircuitBreaker.RecordSuccess()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -361,4 +399,30 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
+}
+
+// handleMetrics handles metrics requests
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	stats := s.CircuitBreaker.GetStats()
+
+	response := map[string]interface{}{
+		"total_requests":   stats.TotalRequests,
+		"error_requests":   stats.ErrorRequests,
+		"success_requests": stats.SuccessRequests,
+		"error_rate":       stats.ErrorRate,
+		"circuit_breaker": map[string]interface{}{
+			"tripped":        stats.IsTripped,
+			"last_trip_time": stats.LastTripTime,
+		},
+	}
+
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, "Failed to marshal metrics", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseBytes)
 }
