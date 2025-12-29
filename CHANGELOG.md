@@ -5,6 +5,115 @@ All notable changes to kspec will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-12-29
+
+### 🚀 Major Release: Production-Ready Policy Enforcement Platform
+
+This release transforms kspec from a monitoring-only operator into a production-ready policy enforcement platform with real-time admission webhooks, automated certificate management, and enterprise-grade safety features.
+
+### Added
+
+#### Phase 1: Policy Enforcement Foundations
+- **Enforcement modes** - monitor, audit, enforce for gradual policy rollout
+- **Kyverno policy generation** - Automatic ClusterPolicy creation from ClusterSpec
+- **Policy lifecycle management** - Create, update, delete policies with ownership tracking
+- **Status tracking** - `status.enforcement` tracks active enforcement state and policy count
+- **Safe defaults** - Enforcement disabled by default, fail-open behavior
+
+#### Phase 2: Certificate Management
+- **cert-manager integration** - Automated TLS certificate provisioning for webhooks
+- **Certificate lifecycle** - Auto-renewal with 90-day validity, 30-day renewal window
+- **Status tracking** - `status.webhooks.certificateReady` indicates cert readiness
+- **Configurable issuers** - Support for Issuer and ClusterIssuer
+- **DNS names** - Proper FQDN configuration for in-cluster webhook access
+
+#### Phase 3: Admission Webhooks
+- **Real-time pod validation** - Admission webhook server on port 9443
+- **ValidatingWebhookConfiguration** - Global webhook for all pod CREATE/UPDATE operations
+- **Multi-mode enforcement** - Respects ClusterSpec enforcement mode (monitor/audit/enforce)
+- **Comprehensive validation** - Workload security, image validation, resource limits
+- **Health endpoints** - `/healthz`, `/readyz` for Kubernetes probes
+- **Fail-open by default** - Continues operation even on errors
+
+#### Phase 4: Circuit Breaker & Safety Features
+- **Circuit breaker pattern** - Auto-disable at 50% error rate
+- **Sliding window metrics** - 1-minute window, last 100 requests
+- **Automatic recovery** - 5-minute cooldown before retry
+- **Metrics endpoint** - `/metrics` exposes circuit breaker statistics
+- **Panic recovery** - Catches and logs panics without crashing
+- **Thread-safe operations** - Mutex-protected state management
+
+### Changed
+
+- **CRD schema** - Added `spec.enforcement` and `spec.webhooks` fields
+- **Controller** - Integrated policy, certificate, and webhook management
+- **RBAC** - Added permissions for Kyverno policies, certificates, webhooks
+- **Status** - Enhanced with enforcement and webhook state tracking
+
+### Security
+
+- **Fail-open defaults** - Prevents cascade failures
+- **Configurable failure policies** - Ignore or Fail per ClusterSpec
+- **Circuit breaker protection** - Auto-disable on high error rates
+- **TLS everywhere** - All webhook traffic encrypted with cert-manager certificates
+- **Graduated enforcement** - Start with monitor, move to audit, then enforce
+
+### Performance
+
+- **Lightweight metrics** - Sub-microsecond overhead per request
+- **Efficient sliding window** - Automatic cleanup of old entries
+- **Non-blocking operations** - Webhook server runs in separate goroutine
+- **Configurable timeouts** - 1-30 seconds (default 10) for webhook validation
+
+### Documentation
+
+- **v0.3.0 architecture** - Complete enforcement pipeline documentation
+- **Safety features** - Documented all fail-safe mechanisms
+- **Enforcement modes** - Clear guidance on monitor/audit/enforce progression
+- **Circuit breaker** - Detailed explanation of error rate monitoring
+
+### Breaking Changes
+
+⚠️ **CRD Update Required** - v0.3.0 adds new fields to ClusterSpecification CRD. Update CRDs before upgrading:
+```bash
+kubectl apply -k github.com/cloudcwfranck/kspec/config/crd?ref=v0.3.0
+```
+
+### Upgrade Notes
+
+1. **Install cert-manager** (required for webhooks):
+   ```bash
+   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+   ```
+
+2. **Update CRDs** before upgrading operator:
+   ```bash
+   kubectl apply -k config/crd
+   ```
+
+3. **Start with audit mode** for safe rollout:
+   ```yaml
+   spec:
+     enforcement:
+       enabled: true
+       mode: audit  # Start here, move to enforce later
+   ```
+
+### Dependencies
+
+- **cert-manager** v1.13.0+ (required for webhook TLS)
+- **Kyverno** v1.10.0+ (optional, for policy enforcement)
+- **Kubernetes** v1.24.0+ (for ValidatingWebhookConfiguration v1)
+
+### Full Changelog
+
+All v0.3.0 commits:
+- Phase 1: Add enforcement and webhooks fields to ClusterSpecification CRD (8a10e35)
+- Phase 1: Integrate Kyverno policy enforcement into ClusterSpec controller (5aba94b)
+- Phase 2: Add cert-manager integration for webhook TLS certificates (db7ee93)
+- Phase 3: Implement admission webhook server and ValidatingWebhookConfiguration (8fb3632)
+- Phase 4: Implement circuit breaker and safety features for webhooks (23b312e)
+
 ## [0.1.0] - 2025-01-15
 
 ### 🎉 Initial Release
