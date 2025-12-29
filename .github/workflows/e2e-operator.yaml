@@ -198,6 +198,13 @@ jobs:
           - apiGroups: ["kspec.io"]
             resources: ["clusterspecifications/finalizers", "clustertargets/finalizers"]
             verbs: ["update"]
+          # Leader election (Phase 8) - required even in single-replica test deployments
+          - apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          - apiGroups: [""]
+            resources: ["events"]
+            verbs: ["create", "patch"]
           ---
           apiVersion: rbac.authorization.k8s.io/v1
           kind: ClusterRoleBinding
@@ -258,6 +265,7 @@ jobs:
                   - --metrics-bind-address=:8080
                   - --health-probe-bind-address=:8081
                   - --enable-webhooks=false
+                  - --leader-elect=false
                   resources:
                     requests:
                       cpu: 100m
