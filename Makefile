@@ -76,10 +76,10 @@ manager: build-operator
 manifests:
 	@echo "Generating CRD manifests..."
 	@if command -v controller-gen >/dev/null 2>&1; then \
-		controller-gen crd paths="./api/..." output:crd:artifacts:config=config/crd; \
+		controller-gen crd:allowDangerousTypes=true paths="./api/..." output:crd:artifacts:config=config/crd; \
 	else \
 		echo "controller-gen not found, skipping manifest generation"; \
-		echo "Install with: go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest"; \
+		echo "Install with: go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5"; \
 	fi
 
 ## install: Install CRDs into cluster (kubebuilder compatibility)
