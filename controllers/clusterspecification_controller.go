@@ -72,6 +72,7 @@ type ClusterSpecReconciler struct {
 // +kubebuilder:rbac:groups=kyverno.io,resources=clusterpolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates/status,verbs=get
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=namespaces;pods;serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=get;list;watch
 
@@ -279,6 +280,17 @@ func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Update webhook status
 	r.updateWebhookStatus(ctx, &clusterSpec, certificateReady)
 
+	// Step 5.7: Manage ValidatingWebhookConfiguration (v0.3.0 Phase 3)
+	if clusterInfo.AllowEnforcement {
+		log.Info("Managing ValidatingWebhookConfiguration")
+		if err := r.manageValidatingWebhook(ctx, &clusterSpec); err != nil {
+			log.Error(err, "Failed to manage ValidatingWebhookConfiguration")
+			// Continue even if webhook config management fails (non-fatal)
+		}
+	} else {
+		log.Info("Skipping webhook configuration (enforcement not allowed on this cluster)")
+	}
+
 	// Step 6: Update ClusterSpecification status
 	if err := r.updateStatus(ctx, &clusterSpec, scanResult, driftReport); err != nil {
 		log.Error(err, "Failed to update status")
@@ -366,6 +378,12 @@ func (r *ClusterSpecReconciler) handleDeletion(ctx context.Context, clusterSpec 
 			log.Error(err, "Failed to cleanup certificate")
 			// Continue even if cleanup fails
 		}
+	}
+
+	// Clean up ValidatingWebhookConfiguration (Phase 3)
+	if err := r.cleanupValidatingWebhook(ctx); err != nil {
+		log.Error(err, "Failed to cleanup ValidatingWebhookConfiguration")
+		// Continue even if cleanup fails
 	}
 
 	// Remove finalizer

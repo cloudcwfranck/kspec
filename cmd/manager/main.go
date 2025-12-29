@@ -112,17 +112,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup webhooks
+	// Start webhook server (v0.3.0 Phase 3)
 	if enableWebhooks {
-		setupLog.Info("Setting up webhooks")
-		if err = (&webhooks.PodValidator{
-			Client: mgr.GetClient(),
-		}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
+		setupLog.Info("Starting admission webhook server")
+		webhookServer := webhooks.NewServer(mgr.GetClient(), 9443)
+		if err := mgr.Add(webhookServer); err != nil {
+			setupLog.Error(err, "unable to start webhook server")
 			// Don't exit - allow operator to run without webhooks
 			setupLog.Info("Webhooks disabled - continuing without real-time validation")
 		} else {
-			setupLog.Info("Webhooks enabled successfully")
+			setupLog.Info("Webhook server started successfully on port 9443")
 		}
 	} else {
 		setupLog.Info("Webhooks disabled via flag")
