@@ -67,8 +67,8 @@ func (r *ClusterSpecReconciler) manageCertificate(
 
 	// Create Certificate resource
 	issuerRef := certmanager.IssuerRef{
-		Name: certConfig.Issuer,
-		Kind: certConfig.IssuerKind,
+		Name:  certConfig.Issuer,
+		Kind:  certConfig.IssuerKind,
 		Group: "cert-manager.io",
 	}
 
