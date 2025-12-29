@@ -18,6 +18,7 @@ import (
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
 	"github.com/cloudcwfranck/kspec/pkg/metrics"
+	"github.com/cloudcwfranck/kspec/pkg/policy"
 )
 
 var (
@@ -35,6 +36,7 @@ type Server struct {
 	Client         client.Client
 	Port           int
 	CircuitBreaker *CircuitBreaker
+	PolicyManager  *policy.AdvancedPolicyManager
 }
 
 // NewServer creates a new webhook server
@@ -43,6 +45,7 @@ func NewServer(client client.Client, port int) *Server {
 		Client:         client,
 		Port:           port,
 		CircuitBreaker: NewCircuitBreaker(),
+		PolicyManager:  policy.NewAdvancedPolicyManager(client),
 	}
 }
 
@@ -228,6 +231,52 @@ func (s *Server) validate(ctx context.Context, request *admissionv1.AdmissionReq
 		// Skip if mode is monitor (no enforcement)
 		if clusterSpec.Spec.Enforcement.Mode == "monitor" {
 			continue
+		}
+
+		// Phase 7: Check namespace scoping
+		if clusterSpec.Spec.NamespaceScope != nil {
+			scopeConfig := &policy.NamespaceScope{
+				IncludeNamespaces: clusterSpec.Spec.NamespaceScope.IncludeNamespaces,
+				ExcludeNamespaces: clusterSpec.Spec.NamespaceScope.ExcludeNamespaces,
+				NamespaceSelector: clusterSpec.Spec.NamespaceScope.NamespaceSelector,
+			}
+			if !s.PolicyManager.ApplyNamespaceScope(scopeConfig, pod.Namespace) {
+				log.V(1).Info("Pod namespace not in scope", "namespace", pod.Namespace, "clusterSpec", clusterSpec.Name)
+				continue
+			}
+		}
+
+		// Phase 7: Check time-based activation
+		if clusterSpec.Spec.TimeBasedActivation != nil && clusterSpec.Spec.TimeBasedActivation.Enabled {
+			timeConfig := &policy.TimeBasedActivation{
+				Enabled:       true,
+				Timezone:      clusterSpec.Spec.TimeBasedActivation.Timezone,
+				ActivePeriods: convertTimePeriods(clusterSpec.Spec.TimeBasedActivation.ActivePeriods),
+			}
+			if !s.PolicyManager.IsActiveInTimeWindow(timeConfig, time.Now()) {
+				log.V(1).Info("Policy not active in current time window", "clusterSpec", clusterSpec.Name)
+				continue
+			}
+		}
+
+		// Phase 7: Check policy exemptions
+		if len(clusterSpec.Spec.PolicyExemptions) > 0 {
+			exemptions := convertExemptions(clusterSpec.Spec.PolicyExemptions)
+			if exempt, reason := s.PolicyManager.IsExempt(
+				ctx,
+				exemptions,
+				"Pod",
+				pod.Name,
+				pod.Namespace,
+				pod.Labels,
+			); exempt {
+				log.Info("Pod is exempt from policy",
+					"pod", pod.Name,
+					"namespace", pod.Namespace,
+					"reason", reason)
+				metrics.PolicyEnforcementActions.WithLabelValues(clusterSpec.Name, "exempted").Inc()
+				continue
+			}
 		}
 
 		// Validate pod against this ClusterSpec
@@ -446,4 +495,46 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseBytes)
+}
+
+// convertTimePeriods converts CRD TimePeriodSpec to policy TimePeriod
+func convertTimePeriods(specs []kspecv1alpha1.TimePeriodSpec) []policy.TimePeriod {
+	result := make([]policy.TimePeriod, len(specs))
+	for i, spec := range specs {
+		result[i] = policy.TimePeriod{
+			StartTime:  spec.StartTime,
+			EndTime:    spec.EndTime,
+			DaysOfWeek: spec.DaysOfWeek,
+			StartDate:  spec.StartDate,
+			EndDate:    spec.EndDate,
+		}
+	}
+	return result
+}
+
+// convertExemptions converts CRD PolicyExemptionSpec to policy PolicyExemption
+func convertExemptions(specs []kspecv1alpha1.PolicyExemptionSpec) []policy.PolicyExemption {
+	result := make([]policy.PolicyExemption, len(specs))
+	for i, spec := range specs {
+		resources := make([]policy.ResourceSelector, len(spec.Resources))
+		for j, res := range spec.Resources {
+			resources[j] = policy.ResourceSelector{
+				Kind:      res.Kind,
+				Name:      res.Name,
+				Namespace: res.Namespace,
+				Labels:    res.LabelSelector,
+			}
+		}
+
+		result[i] = policy.PolicyExemption{
+			Name:       spec.Name,
+			Reason:     spec.Reason,
+			ExpiresAt:  spec.ExpiresAt,
+			Namespaces: spec.Namespaces,
+			Resources:  resources,
+			Approver:   spec.Approver,
+			CreatedAt:  metav1.Now(),
+		}
+	}
+	return result
 }

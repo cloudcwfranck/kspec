@@ -21,7 +21,156 @@ type ClusterSpecificationSpec struct {
 	// +optional
 	Webhooks *WebhooksSpec `json:"webhooks,omitempty"`
 
+	// PolicyTemplate references a policy template to use
+	// +optional
+	PolicyTemplate *PolicyTemplateRef `json:"policyTemplate,omitempty"`
+
+	// PolicyInheritance defines policy composition through inheritance
+	// +optional
+	PolicyInheritance *PolicyInheritanceSpec `json:"policyInheritance,omitempty"`
+
+	// NamespaceScope restricts policy to specific namespaces
+	// +optional
+	NamespaceScope *NamespaceScopeSpec `json:"namespaceScope,omitempty"`
+
+	// TimeBasedActivation enables time-based policy activation
+	// +optional
+	TimeBasedActivation *TimeBasedActivationSpec `json:"timeBasedActivation,omitempty"`
+
+	// PolicyExemptions defines resources exempt from this policy
+	// +optional
+	PolicyExemptions []PolicyExemptionSpec `json:"policyExemptions,omitempty"`
+
 	spec.SpecFields `json:",inline"`
+}
+
+// PolicyTemplateRef references a policy template
+type PolicyTemplateRef struct {
+	// Name of the policy template
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Parameters for the template
+	// +optional
+	Parameters map[string]string `json:"parameters,omitempty"`
+}
+
+// PolicyInheritanceSpec defines policy inheritance
+type PolicyInheritanceSpec struct {
+	// BasePolicies are parent policies to inherit from
+	// +optional
+	BasePolicies []string `json:"basePolicies,omitempty"`
+
+	// MergeStrategy defines how to merge inherited policies
+	// +optional
+	// +kubebuilder:validation:Enum=merge;override;append
+	// +kubebuilder:default=merge
+	MergeStrategy string `json:"mergeStrategy,omitempty"`
+}
+
+// NamespaceScopeSpec defines namespace-level scoping
+type NamespaceScopeSpec struct {
+	// IncludeNamespaces lists namespaces to include
+	// +optional
+	IncludeNamespaces []string `json:"includeNamespaces,omitempty"`
+
+	// ExcludeNamespaces lists namespaces to exclude
+	// +optional
+	ExcludeNamespaces []string `json:"excludeNamespaces,omitempty"`
+
+	// NamespaceSelector selects namespaces by labels
+	// +optional
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+}
+
+// TimeBasedActivationSpec defines time-based activation
+type TimeBasedActivationSpec struct {
+	// Enabled controls time-based activation
+	// +optional
+	// +kubebuilder:default=false
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Schedule defines when the policy is active (cron format)
+	// +optional
+	Schedule string `json:"schedule,omitempty"`
+
+	// Timezone for schedule evaluation
+	// +optional
+	// +kubebuilder:default=UTC
+	Timezone string `json:"timezone,omitempty"`
+
+	// ActivePeriods defines specific time ranges
+	// +optional
+	ActivePeriods []TimePeriodSpec `json:"activePeriods,omitempty"`
+}
+
+// TimePeriodSpec defines a time range
+type TimePeriodSpec struct {
+	// StartTime in HH:MM format
+	// +optional
+	StartTime string `json:"startTime,omitempty"`
+
+	// EndTime in HH:MM format
+	// +optional
+	EndTime string `json:"endTime,omitempty"`
+
+	// DaysOfWeek when this period is active
+	// +optional
+	DaysOfWeek []string `json:"daysOfWeek,omitempty"`
+
+	// StartDate for the period
+	// +optional
+	StartDate *metav1.Time `json:"startDate,omitempty"`
+
+	// EndDate for the period
+	// +optional
+	EndDate *metav1.Time `json:"endDate,omitempty"`
+}
+
+// PolicyExemptionSpec defines a policy exemption
+type PolicyExemptionSpec struct {
+	// Name of the exemption
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Reason for the exemption
+	// +optional
+	Reason string `json:"reason,omitempty"`
+
+	// ExpiresAt defines when the exemption expires
+	// +optional
+	ExpiresAt *metav1.Time `json:"expiresAt,omitempty"`
+
+	// Namespaces covered by this exemption
+	// +optional
+	Namespaces []string `json:"namespaces,omitempty"`
+
+	// Resources covered by this exemption
+	// +optional
+	Resources []ResourceSelectorSpec `json:"resources,omitempty"`
+
+	// Approver who approved this exemption
+	// +optional
+	Approver string `json:"approver,omitempty"`
+}
+
+// ResourceSelectorSpec selects specific resources
+type ResourceSelectorSpec struct {
+	// Kind of resource
+	// +optional
+	Kind string `json:"kind,omitempty"`
+
+	// Name of resource
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// Namespace of resource
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// LabelSelector for resources
+	// +optional
+	LabelSelector map[string]string `json:"labelSelector,omitempty"`
 }
 
 // ClusterReference references a ClusterTarget resource

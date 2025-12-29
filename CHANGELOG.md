@@ -66,6 +66,18 @@ This release transforms kspec from a monitoring-only operator into a production-
 - **High availability** - 2-replica webhook deployments in remote clusters
 - **Automatic cleanup** - Removes enforcement resources when ClusterSpec is deleted
 
+#### Phase 7: Advanced Policies
+- **Custom policy templates** - Reusable policy templates with parameters (security-baseline, compliance-strict)
+- **Policy inheritance** - Compose policies from multiple base policies with merge strategies
+- **Namespace-scoped policies** - Restrict policies to specific namespaces via include/exclude lists or label selectors
+- **Time-based activation** - Policies active only during specific time windows (business hours, maintenance windows)
+- **Policy exemptions** - Explicit exemptions for resources with expiration, approval tracking, and audit trail
+- **Template parameters** - Configurable policy templates with type validation and default values
+- **Merge strategies** - Flexible policy composition (merge, override, append)
+- **Schedule support** - Cron-style and time period definitions with timezone support
+- **Automatic expiration** - Exemptions expire automatically after specified time
+- **Resource selectors** - Fine-grained exemption targeting by kind, name, namespace, or labels
+
 ### Changed
 
 - **CRD schema** - Added `spec.enforcement` and `spec.webhooks` fields
