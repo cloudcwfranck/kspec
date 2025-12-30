@@ -8,18 +8,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestDetectPolicyDrift_MissingPolicy(t *testing.T) {
-	t.Skip("TODO: Requires complex fake client setup with CRD registration")
 	ctx := context.Background()
 
 	// Create fake clients with no policies deployed
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 
 	// Create detector
 	detector := NewDetector(client, dynamicClient)
@@ -72,7 +67,6 @@ func TestDetectPolicyDrift_MissingPolicy(t *testing.T) {
 }
 
 func TestDetectPolicyDrift_ModifiedPolicy(t *testing.T) {
-	t.Skip("TODO: Requires complex fake client setup with CRD registration")
 	ctx := context.Background()
 
 	// Create a policy with kspec annotation
@@ -110,15 +104,7 @@ func TestDetectPolicyDrift_ModifiedPolicy(t *testing.T) {
 	})
 
 	// Create fake clients with the modified policy
-	scheme := runtime.NewScheme()
-	gvr := schema.GroupVersionResource{
-		Group:    "kyverno.io",
-		Version:  "v1",
-		Resource: "clusterpolicies",
-	}
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme, policy)
-
-	client := fake.NewSimpleClientset()
+	client, dynamicClient := createTestClients(policy)
 
 	detector := NewDetector(client, dynamicClient)
 
@@ -165,12 +151,9 @@ func TestDetectPolicyDrift_ModifiedPolicy(t *testing.T) {
 	if !foundModified {
 		t.Error("Expected 'modified' policy drift event")
 	}
-
-	_ = gvr // Unused for now but may be needed
 }
 
 func TestDetectPolicyDrift_ExtraPolicy(t *testing.T) {
-	t.Skip("TODO: Requires complex fake client setup with CRD registration")
 	ctx := context.Background()
 
 	// Create an extra policy with kspec annotation
@@ -200,10 +183,7 @@ func TestDetectPolicyDrift_ExtraPolicy(t *testing.T) {
 	})
 
 	// Create fake clients with the extra policy
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme, extraPolicy)
-
-	client := fake.NewSimpleClientset()
+	client, dynamicClient := createTestClients(extraPolicy)
 
 	detector := NewDetector(client, dynamicClient)
 
@@ -241,13 +221,10 @@ func TestDetectPolicyDrift_ExtraPolicy(t *testing.T) {
 }
 
 func TestDetectPolicyDrift_NoDrift(t *testing.T) {
-	t.Skip("TODO: Requires complex fake client setup with CRD registration")
 	ctx := context.Background()
 
 	// Create fake clients with no policies
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 
 	detector := NewDetector(client, dynamicClient)
 
@@ -273,13 +250,10 @@ func TestDetectPolicyDrift_NoDrift(t *testing.T) {
 }
 
 func TestDetect_IntegrationTest(t *testing.T) {
-	t.Skip("TODO: Requires complex fake client setup with CRD registration")
 	ctx := context.Background()
 
 	// Create fake clients
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 
 	detector := NewDetector(client, dynamicClient)
 
@@ -324,9 +298,7 @@ func TestDetect_IntegrationTest(t *testing.T) {
 }
 
 func TestIsKspecGenerated(t *testing.T) {
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 	detector := NewDetector(client, dynamicClient)
 
 	tests := []struct {
@@ -382,9 +354,7 @@ func TestIsKspecGenerated(t *testing.T) {
 }
 
 func TestUpdateSummary(t *testing.T) {
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 	detector := NewDetector(client, dynamicClient)
 
 	report := &DriftReport{

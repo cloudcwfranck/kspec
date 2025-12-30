@@ -6,19 +6,13 @@ import (
 
 	"github.com/cloudcwfranck/kspec/pkg/spec"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestRemediate_DryRun(t *testing.T) {
-	t.Skip("TODO: Requires proper fake client setup for accurate dry-run testing")
 	ctx := context.Background()
 
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 
 	remediator := NewRemediator(client, dynamicClient)
 
@@ -26,6 +20,20 @@ func TestRemediate_DryRun(t *testing.T) {
 		Metadata: spec.Metadata{
 			Name:    "test-spec",
 			Version: "1.0.0",
+		},
+	}
+
+	// Create expected policy for the missing drift event
+	expectedPolicy := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "kyverno.io/v1",
+			"kind":       "ClusterPolicy",
+			"metadata": map[string]interface{}{
+				"name": "test-policy",
+			},
+			"spec": map[string]interface{}{
+				"rules": []interface{}{},
+			},
 		},
 	}
 
@@ -38,6 +46,7 @@ func TestRemediate_DryRun(t *testing.T) {
 					Kind: "ClusterPolicy",
 					Name: "test-policy",
 				},
+				Expected: expectedPolicy,
 			},
 		},
 	}
@@ -50,23 +59,25 @@ func TestRemediate_DryRun(t *testing.T) {
 		t.Fatalf("Remediate in dry-run mode failed: %v", err)
 	}
 
-	// Verify dry-run doesn't modify events
-	for _, event := range report.Events {
-		if event.Remediation == nil {
-			continue
-		}
-		if event.Remediation.Action != "would-create" && event.Remediation.Action != "would-update" && event.Remediation.Action != "would-delete" {
-			t.Errorf("Expected dry-run action (would-*), got: %s", event.Remediation.Action)
-		}
+	// Verify dry-run sets proper status
+	event := &report.Events[0]
+	if event.Remediation == nil {
+		t.Fatal("Expected remediation result")
+	}
+
+	// Dry-run should set action to "create" and status to "detected"
+	if event.Remediation.Action != "create" {
+		t.Errorf("Expected action 'create' for dry-run, got: %s", event.Remediation.Action)
+	}
+	if event.Remediation.Status != DriftStatusDetected {
+		t.Errorf("Expected status '%s' for dry-run, got: %s", DriftStatusDetected, event.Remediation.Status)
 	}
 }
 
 func TestRemediate_MissingPolicy(t *testing.T) {
 	ctx := context.Background()
 
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 
 	remediator := NewRemediator(client, dynamicClient)
 
@@ -154,10 +165,7 @@ func TestRemediate_ModifiedPolicy(t *testing.T) {
 		Kind:    "ClusterPolicy",
 	})
 
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme, existingPolicy)
-
-	client := fake.NewSimpleClientset()
+	client, dynamicClient := createTestClients(existingPolicy)
 
 	remediator := NewRemediator(client, dynamicClient)
 
@@ -220,12 +228,9 @@ func TestRemediate_ModifiedPolicy(t *testing.T) {
 }
 
 func TestRemediate_ExtraPolicyWithoutForce(t *testing.T) {
-	t.Skip("TODO: Requires proper fake client setup for accurate behavior testing")
 	ctx := context.Background()
 
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 
 	remediator := NewRemediator(client, dynamicClient)
 
@@ -259,11 +264,11 @@ func TestRemediate_ExtraPolicyWithoutForce(t *testing.T) {
 		t.Fatalf("Remediate failed: %v", err)
 	}
 
-	// Verify extra policy was not deleted (reported only)
+	// Verify extra policy was not deleted (skipped)
 	event := &report.Events[0]
 	if event.Remediation != nil {
-		if event.Remediation.Action != "report" {
-			t.Errorf("Expected action 'report', got: %s", event.Remediation.Action)
+		if event.Remediation.Action != "skip" {
+			t.Errorf("Expected action 'skip', got: %s", event.Remediation.Action)
 		}
 		if event.Remediation.Status != DriftStatusManualRequired {
 			t.Errorf("Expected status manual-required, got: %s", event.Remediation.Status)
@@ -293,10 +298,7 @@ func TestRemediate_ExtraPolicyWithForce(t *testing.T) {
 		Kind:    "ClusterPolicy",
 	})
 
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme, extraPolicy)
-
-	client := fake.NewSimpleClientset()
+	client, dynamicClient := createTestClients(extraPolicy)
 
 	remediator := NewRemediator(client, dynamicClient)
 
@@ -343,9 +345,7 @@ func TestRemediate_ExtraPolicyWithForce(t *testing.T) {
 func TestRemediate_ComplianceDrift(t *testing.T) {
 	ctx := context.Background()
 
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 
 	remediator := NewRemediator(client, dynamicClient)
 
@@ -391,12 +391,9 @@ func TestRemediate_ComplianceDrift(t *testing.T) {
 }
 
 func TestRemediateAll(t *testing.T) {
-	t.Skip("TODO: Requires proper fake client setup for integration testing")
 	ctx := context.Background()
 
-	client := fake.NewSimpleClientset()
-	scheme := runtime.NewScheme()
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	client, dynamicClient := createTestClients()
 
 	clusterSpec := &spec.ClusterSpecification{
 		Metadata: spec.Metadata{
