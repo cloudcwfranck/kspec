@@ -195,6 +195,64 @@ spec:
                 - maxVersion
                 - minVersion
                 type: object
+              namespaceScope:
+                description: NamespaceScope restricts policy to specific namespaces
+                properties:
+                  excludeNamespaces:
+                    description: ExcludeNamespaces lists namespaces to exclude
+                    items:
+                      type: string
+                    type: array
+                  includeNamespaces:
+                    description: IncludeNamespaces lists namespaces to include
+                    items:
+                      type: string
+                    type: array
+                  namespaceSelector:
+                    description: NamespaceSelector selects namespaces by labels
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: |-
+                            A label selector requirement is a selector that contains values, a key, and an operator that
+                            relates the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: |-
+                                operator represents a key's relationship to a set of values.
+                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: |-
+                                values is an array of string values. If the operator is In or NotIn,
+                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced during a strategic
+                                merge patch.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
               network:
                 description: NetworkSpec defines network policy requirements.
                 properties:
@@ -286,6 +344,86 @@ spec:
                 - enforce
                 - warn
                 type: object
+              policyExemptions:
+                description: PolicyExemptions defines resources exempt from this policy
+                items:
+                  description: PolicyExemptionSpec defines a policy exemption
+                  properties:
+                    approver:
+                      description: Approver who approved this exemption
+                      type: string
+                    expiresAt:
+                      description: ExpiresAt defines when the exemption expires
+                      format: date-time
+                      type: string
+                    name:
+                      description: Name of the exemption
+                      type: string
+                    namespaces:
+                      description: Namespaces covered by this exemption
+                      items:
+                        type: string
+                      type: array
+                    reason:
+                      description: Reason for the exemption
+                      type: string
+                    resources:
+                      description: Resources covered by this exemption
+                      items:
+                        description: ResourceSelectorSpec selects specific resources
+                        properties:
+                          kind:
+                            description: Kind of resource
+                            type: string
+                          labelSelector:
+                            additionalProperties:
+                              type: string
+                            description: LabelSelector for resources
+                            type: object
+                          name:
+                            description: Name of resource
+                            type: string
+                          namespace:
+                            description: Namespace of resource
+                            type: string
+                        type: object
+                      type: array
+                  required:
+                  - name
+                  type: object
+                type: array
+              policyInheritance:
+                description: PolicyInheritance defines policy composition through
+                  inheritance
+                properties:
+                  basePolicies:
+                    description: BasePolicies are parent policies to inherit from
+                    items:
+                      type: string
+                    type: array
+                  mergeStrategy:
+                    default: merge
+                    description: MergeStrategy defines how to merge inherited policies
+                    enum:
+                    - merge
+                    - override
+                    - append
+                    type: string
+                type: object
+              policyTemplate:
+                description: PolicyTemplate references a policy template to use
+                properties:
+                  name:
+                    description: Name of the policy template
+                    type: string
+                  parameters:
+                    additionalProperties:
+                      type: string
+                    description: Parameters for the template
+                    type: object
+                required:
+                - name
+                type: object
               rbac:
                 description: RBACSpec defines RBAC requirements.
                 properties:
@@ -325,6 +463,48 @@ spec:
                       - verbs
                       type: object
                     type: array
+                type: object
+              timeBasedActivation:
+                description: TimeBasedActivation enables time-based policy activation
+                properties:
+                  activePeriods:
+                    description: ActivePeriods defines specific time ranges
+                    items:
+                      description: TimePeriodSpec defines a time range
+                      properties:
+                        daysOfWeek:
+                          description: DaysOfWeek when this period is active
+                          items:
+                            type: string
+                          type: array
+                        endDate:
+                          description: EndDate for the period
+                          format: date-time
+                          type: string
+                        endTime:
+                          description: EndTime in HH:MM format
+                          type: string
+                        startDate:
+                          description: StartDate for the period
+                          format: date-time
+                          type: string
+                        startTime:
+                          description: StartTime in HH:MM format
+                          type: string
+                      type: object
+                    type: array
+                  enabled:
+                    default: false
+                    description: Enabled controls time-based activation
+                    type: boolean
+                  schedule:
+                    description: Schedule defines when the policy is active (cron
+                      format)
+                    type: string
+                  timezone:
+                    default: UTC
+                    description: Timezone for schedule evaluation
+                    type: string
                 type: object
               webhooks:
                 description: Webhooks configures admission webhook behavior
