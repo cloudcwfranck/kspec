@@ -13,7 +13,7 @@ export default function DocSidebar({ sections, currentSlug }: DocSidebarProps) {
     <nav className="sticky top-24 space-y-8">
       {sections.map((section) => (
         <div key={section.title}>
-          <h3 className="font-semibold text-sm uppercase text-[#707070] mb-3">
+          <h3 className="font-semibold text-sm uppercase text-linear-text-muted mb-3">
             {section.title}
           </h3>
           <ul className="space-y-2">
@@ -25,8 +25,8 @@ export default function DocSidebar({ sections, currentSlug }: DocSidebarProps) {
                     href={`/docs/${page.slug}`}
                     className={`block text-sm py-1 px-3 rounded-md transition-colors ${
                       isActive
-                        ? 'bg-primary-600/10 text-primary-500 font-medium border border-primary-600/20'
-                        : 'text-[#a0a0a0] hover:text-white hover:bg-[#1a1a1a]'
+                        ? 'bg-accent/10 text-accent font-medium border border-accent/20'
+                        : 'text-linear-text-secondary hover:text-linear-text hover:bg-linear-surface'
                     }`}
                   >
                     {page.title}

@@ -8,49 +8,63 @@
   }
 
   body {
-    @apply bg-[#0a0a0a] text-white;
+    @apply bg-linear-bg text-linear-text;
+    font-weight: 400;
+    line-height: 1.45;
   }
 
-  /* Custom scrollbar */
+  /* Custom scrollbar (Linear style) */
   ::-webkit-scrollbar {
-    @apply w-2;
+    width: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-[#0a0a0a];
+    @apply bg-linear-bg;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-[#2a2a2a] rounded-full;
+    @apply bg-linear-border rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-[#3a3a3a];
+    @apply bg-linear-text-muted;
   }
 }
 
 @layer components {
-  /* Button styles */
+  /* Button styles (Linear spec) */
   .btn-primary {
-    @apply px-6 py-3 bg-primary-600 text-white rounded-lg font-medium transition-all duration-200 hover:bg-primary-500 hover:shadow-lg active:scale-95;
+    @apply px-6 py-3 bg-accent text-white rounded-xl font-medium;
+    transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .btn-primary:hover {
+    @apply bg-accent-hover;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-[#1a1a1a] text-white border border-[#2a2a2a] rounded-lg font-medium transition-all duration-200 hover:bg-[#2a2a2a] hover:border-[#3a3a3a] active:scale-95;
+    @apply px-6 py-3 bg-transparent text-linear-text border border-linear-border rounded-xl font-medium;
+    transition: all 120ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .btn-secondary:hover {
+    @apply bg-linear-surface border-linear-text-muted;
   }
 
   /* Code block styling */
   .prose pre {
-    @apply bg-[#0a0a0a] border border-[#2a2a2a] text-[#a0a0a0] rounded-lg p-4 overflow-x-auto;
+    @apply bg-linear-bg border border-linear-border text-linear-text-secondary rounded-xl p-4 overflow-x-auto;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
   .prose code {
-    @apply text-sm;
+    @apply text-sm text-linear-text-secondary;
   }
 
   /* Syntax highlighting */
   .hljs {
-    @apply bg-[#0a0a0a] text-[#a0a0a0];
+    @apply bg-linear-bg text-linear-text-secondary;
   }
 
   .hljs-comment,
@@ -87,13 +101,13 @@
     @apply text-gray-400;
   }
 
-  /* Linear-style gradients */
+  /* Linear-style gradients (subtle, minimal) */
   .gradient-subtle {
-    background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+    background: linear-gradient(135deg, #16181D 0%, #0E0F12 100%);
   }
 
-  .gradient-purple {
-    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  .gradient-accent {
+    background: linear-gradient(135deg, #5E6AD2 0%, #6B76DB 100%);
   }
 
   /* Animated gradient background */

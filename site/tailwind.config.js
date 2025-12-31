@@ -8,20 +8,25 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Linear dark theme colors
-        primary: {
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
+        // Linear.app official accent color
+        accent: {
+          DEFAULT: '#5E6AD2',
+          hover: '#6B76DB',
         },
-        dark: {
-          50: '#1a1a1a',   // Slightly lighter than bg
-          100: '#0a0a0a',  // Main background
-          200: '#050505',  // Darker areas
-          300: '#2a2a2a',  // Hover states
-          400: '#3a3a3a',  // Borders
+        // Linear.app dark mode colors (exact spec)
+        linear: {
+          bg: '#0E0F12',              // App background
+          surface: '#16181D',         // Cards/panels
+          'surface-secondary': '#1C1F26', // Secondary surface
+          text: '#EDEEF0',            // Primary text
+          'text-secondary': '#A8ADB7', // Secondary text
+          'text-muted': '#8A8F98',    // Muted text
+          border: '#262A33',          // Borders
         },
+        // Semantic colors (Linear spec)
+        success: '#4CB782',
+        warning: '#F2C94C',
+        error: '#EB5757',
       },
       fontFamily: {
         sans: [
@@ -42,18 +47,30 @@ module.exports = {
           'monospace',
         ],
       },
-      backgroundColor: {
-        'dark-bg': '#0a0a0a',
-        'dark-card': '#1a1a1a',
-        'dark-hover': '#2a2a2a',
+      borderRadius: {
+        'lg': '10px',
+        'xl': '12px',
       },
-      borderColor: {
-        'dark-border': '#2a2a2a',
+      spacing: {
+        // 8px spacing system (Linear spec)
+        '1': '4px',
+        '2': '8px',
+        '3': '12px',
+        '4': '16px',
+        '6': '24px',
+        '8': '32px',
+        '12': '48px',
       },
-      textColor: {
-        'dark-primary': '#ffffff',
-        'dark-secondary': '#a0a0a0',
-        'dark-tertiary': '#707070',
+      transitionDuration: {
+        fast: '120ms',
+        normal: '180ms',
+        slow: '220ms',
+      },
+      transitionTimingFunction: {
+        'linear-ease': 'cubic-bezier(0.2, 0, 0, 1)',
+      },
+      lineHeight: {
+        'tight': '1.45',
       },
     },
   },
