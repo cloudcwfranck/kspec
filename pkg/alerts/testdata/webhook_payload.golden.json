@@ -1,0 +1,15 @@
+{
+  "level": "critical",
+  "title": "Configuration drift detected",
+  "description": "Cluster configuration has drifted from specification",
+  "source": "ClusterSpec/prod-cluster",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "event_type": "DriftDetected",
+  "labels": {
+    "cluster": "prod-cluster"
+  },
+  "metadata": {
+    "cluster": "prod-cluster",
+    "count": 3
+  }
+}
