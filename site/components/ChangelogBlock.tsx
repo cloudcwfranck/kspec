@@ -102,7 +102,7 @@ export default function ChangelogBlock({
       {highlights.length > 0 && (
         <div className="mb-8">
           <h3 className="text-sm font-semibold text-linear-text-muted uppercase mb-4 tracking-wide">
-            What's in this release
+            What&apos;s in this release
           </h3>
           <div className="space-y-3">
             {highlights.map((highlight, idx) => (
