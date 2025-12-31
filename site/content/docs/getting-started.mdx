@@ -1,0 +1,175 @@
+---
+title: Getting Started
+description: Quick start guide for kspec policy enforcement platform
+order: 1
+---
+
+# Getting Started with kspec
+
+Welcome to kspec! This guide will help you get up and running with policy enforcement for your Kubernetes clusters.
+
+## What is kspec?
+
+kspec is a declarative policy enforcement platform for Kubernetes. It allows you to:
+
+- Define security, compliance, and operational policies as code
+- Enforce policies across multiple clusters
+- Track compliance status in real-time
+- Detect and remediate policy drift
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- A Kubernetes cluster (v1.24 or later)
+- `kubectl` configured with cluster access
+- `helm` installed (for Kyverno)
+- Administrator access to the cluster
+
+## Installation
+
+### 1. Install cert-manager
+
+kspec uses cert-manager for webhook certificate management:
+
+```bash
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
+
+# Wait for cert-manager to be ready
+kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager --timeout=120s
+```
+
+### 2. Install Kyverno
+
+kspec uses Kyverno as its policy engine. Install it via Helm:
+
+```bash
+helm repo add kyverno https://kyverno.github.io/kyverno/
+helm repo update
+
+helm install kyverno kyverno/kyverno \
+  --namespace kyverno \
+  --create-namespace \
+  --wait \
+  --timeout=5m
+```
+
+### 3. Install kspec
+
+Install the kspec operator:
+
+```bash
+# Install CRDs
+kubectl apply -f https://raw.githubusercontent.com/cloudcwfranck/kspec/main/config/crd/bases/
+
+# Install operator
+kubectl apply -k https://github.com/cloudcwfranck/kspec/config/default
+
+# Verify installation
+kubectl get pods -n kspec-system
+```
+
+## Your First Policy
+
+### Create a ClusterTarget
+
+Define a target cluster to apply policies to:
+
+```yaml
+apiVersion: kspec.io/v1alpha1
+kind: ClusterTarget
+metadata:
+  name: production
+  namespace: kspec-system
+spec:
+  inCluster: true
+  platform: eks
+  version: "1.28.0"
+```
+
+### Create a ClusterSpecification
+
+Define your security policies:
+
+```yaml
+apiVersion: kspec.io/v1alpha1
+kind: ClusterSpecification
+metadata:
+  name: production-spec
+  namespace: kspec-system
+spec:
+  targetClusterRef:
+    name: production
+  enforcementMode: monitor  # Start in monitor mode
+  policies:
+    - id: "require-non-root"
+      title: "Containers must run as non-root"
+      severity: high
+      checks:
+        - id: "check-security-context"
+          kyvernoPolicy: |
+            apiVersion: kyverno.io/v1
+            kind: ClusterPolicy
+            metadata:
+              name: require-run-as-non-root
+            spec:
+              validationFailureAction: audit
+              background: true
+              rules:
+              - name: check-runAsNonRoot
+                match:
+                  any:
+                  - resources:
+                      kinds:
+                      - Pod
+                validate:
+                  message: "Pods must run as non-root user"
+                  pattern:
+                    spec:
+                      securityContext:
+                        runAsNonRoot: true
+```
+
+### Apply the Specification
+
+```bash
+kubectl apply -f clusterspec.yaml
+```
+
+### Check Compliance
+
+View compliance reports:
+
+```bash
+kubectl get compliancereport -n kspec-system
+
+# Get detailed report
+kubectl get compliancereport production-spec -n kspec-system -o yaml
+```
+
+## Enforcement Modes
+
+kspec supports two enforcement modes:
+
+- **monitor**: Policies run in audit mode. Violations are logged but not blocked.
+- **enforce**: Policies actively block non-compliant resources.
+
+Start in `monitor` mode to understand the impact, then switch to `enforce`:
+
+```bash
+kubectl patch clusterspecification production-spec -n kspec-system \
+  --type='json' \
+  -p='[{"op": "replace", "path": "/spec/enforcementMode", "value": "enforce"}]'
+```
+
+## Next Steps
+
+- [Writing Policies](/docs/guides/writing-policies) - Learn how to write effective security policies
+- [Multi-Cluster Setup](/docs/guides/multi-cluster) - Manage policies across multiple clusters
+- [API Reference](/docs/api-reference) - Complete CRD documentation
+
+## Getting Help
+
+- [GitHub Issues](https://github.com/cloudcwfranck/kspec/issues) - Report bugs or request features
+- [Discussions](https://github.com/cloudcwfranck/kspec/discussions) - Ask questions and share ideas
+- [Examples](https://github.com/cloudcwfranck/kspec/tree/main/examples) - Browse example policies
