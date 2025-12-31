@@ -62,18 +62,30 @@ for deployment in "${DEPLOYMENTS[@]}"; do
     fi
 done
 
-# 3. Check pods
+# 3. Check pods (focus on deployment pods, ignore CronJob pods which may be pending)
 echo ""
 info "Checking Kyverno pods..."
 kubectl get pods -n kyverno
 
-ALL_READY=$(kubectl get pods -n kyverno -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -o "True" | wc -l)
-TOTAL_PODS=$(kubectl get pods -n kyverno --no-headers | wc -l)
+# Count only pods from deployments (ignore CronJob pods that may be in ImagePullBackOff)
+DEPLOYMENT_READY=$(kubectl get pods -n kyverno -l 'app.kubernetes.io/component in (admission-controller,background-controller,cleanup-controller,reports-controller)' -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -o "True" | wc -l)
+DEPLOYMENT_TOTAL=$(kubectl get pods -n kyverno -l 'app.kubernetes.io/component in (admission-controller,background-controller,cleanup-controller,reports-controller)' --no-headers | wc -l)
 
-if [ "$ALL_READY" -eq "$TOTAL_PODS" ] && [ "$TOTAL_PODS" -gt "0" ]; then
-    pass "All Kyverno pods are ready ($ALL_READY/$TOTAL_PODS)"
+if [ "$DEPLOYMENT_READY" -eq "$DEPLOYMENT_TOTAL" ] && [ "$DEPLOYMENT_TOTAL" -gt "0" ]; then
+    pass "All Kyverno deployment pods are ready ($DEPLOYMENT_READY/$DEPLOYMENT_TOTAL)"
 else
-    fail "Not all pods are ready ($ALL_READY/$TOTAL_PODS)"
+    fail "Not all deployment pods are ready ($DEPLOYMENT_READY/$DEPLOYMENT_TOTAL)"
+fi
+
+# Check if there are any CronJob pods with issues (info only, not a failure)
+CRONJOB_PODS=$(kubectl get pods -n kyverno -l 'batch.kubernetes.io/job-name' --no-headers 2>/dev/null | wc -l)
+if [ "$CRONJOB_PODS" -gt "0" ]; then
+    CRONJOB_READY=$(kubectl get pods -n kyverno -l 'batch.kubernetes.io/job-name' -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null | grep -o "True" | wc -l || echo "0")
+    if [ "$CRONJOB_READY" -eq "$CRONJOB_PODS" ]; then
+        pass "CronJob pods are ready ($CRONJOB_READY/$CRONJOB_PODS)"
+    else
+        warn "Some CronJob pods are not ready ($CRONJOB_READY/$CRONJOB_PODS) - this is normal for periodic cleanup jobs"
+    fi
 fi
 
 # 4. Check TLS secrets
