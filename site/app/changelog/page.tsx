@@ -5,7 +5,6 @@ export const metadata: Metadata = {
   description: 'Latest releases and updates for kspec',
 };
 
-// Revalidate every 5 minutes (300 seconds)
 export const revalidate = 300;
 
 interface GitHubRelease {
@@ -15,8 +14,8 @@ interface GitHubRelease {
   published_at: string;
   body: string;
   html_url: string;
-  prerelease: boolean;
   draft: boolean;
+  prerelease: boolean;
 }
 
 async function getReleases(): Promise<GitHubRelease[]> {
@@ -38,17 +37,16 @@ async function getReleases(): Promise<GitHubRelease[]> {
       `https://api.github.com/repos/${owner}/${repo}/releases`,
       {
         headers,
-        next: { revalidate: 300 }, // ISR: revalidate every 5 minutes
+        next: { revalidate: 300 },
       }
     );
 
     if (!response.ok) {
-      console.error(`GitHub API error: ${response.status} ${response.statusText}`);
+      console.error(`GitHub API error: ${response.status}`);
       return [];
     }
 
     const releases: GitHubRelease[] = await response.json();
-    // Filter out drafts and prereleases
     return releases.filter(r => !r.draft && !r.prerelease);
   } catch (error) {
     console.error('Failed to fetch releases:', error);
@@ -65,15 +63,90 @@ function formatDate(dateString: string): string {
   });
 }
 
-function parseReleaseBody(body: string): string {
-  // Convert GitHub-flavored markdown links and basic formatting
-  return body
-    .replace(/\*\*/g, '') // Remove bold markers for simplicity
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
-      return `<pre class="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto my-4"><code>${code.trim()}</code></pre>`;
-    })
-    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 text-primary-700 px-2 py-1 rounded text-sm">$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-primary-600 hover:text-primary-700 underline" target="_blank" rel="noopener noreferrer">$1</a>');
+interface ParsedChanges {
+  features: string[];
+  improvements: string[];
+  fixes: string[];
+  other: string[];
+}
+
+function parseReleaseBody(body: string): ParsedChanges {
+  const changes: ParsedChanges = {
+    features: [],
+    improvements: [],
+    fixes: [],
+    other: [],
+  };
+
+  // Split by lines and process
+  const lines = body.split('\n');
+  let currentSection: keyof ParsedChanges = 'other';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip empty lines, commit hashes, and very technical lines
+    if (!trimmed ||
+        trimmed.match(/^[a-f0-9]{7,40}:/) ||
+        trimmed.match(/^\(@[\w-]+\)/) ||
+        trimmed.startsWith('*') && trimmed.includes('(@')) {
+      continue;
+    }
+
+    // Detect sections
+    if (trimmed.toLowerCase().includes('what\'s in this release') ||
+        trimmed.toLowerCase().includes('### new') ||
+        trimmed.toLowerCase().includes('### features')) {
+      currentSection = 'features';
+      continue;
+    } else if (trimmed.toLowerCase().includes('### improvements') ||
+               trimmed.toLowerCase().includes('### enhancements')) {
+      currentSection = 'improvements';
+      continue;
+    } else if (trimmed.toLowerCase().includes('### fixes') ||
+               trimmed.toLowerCase().includes('### bug fixes')) {
+      currentSection = 'fixes';
+      continue;
+    } else if (trimmed.startsWith('##') || trimmed.startsWith('###')) {
+      currentSection = 'other';
+      continue;
+    }
+
+    // Parse bullet points
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      let text = trimmed.substring(2).trim();
+
+      // Remove emoji characters and clean up
+      text = text.replace(/[✅🔧📊🛡️⚡🎯📝🔍]/g, '').trim();
+
+      // Remove markdown bold
+      text = text.replace(/\*\*/g, '');
+
+      // Remove PR/commit references
+      text = text.replace(/\(#\d+\)/g, '').trim();
+      text = text.replace(/\([a-f0-9]{7,40}\)/g, '').trim();
+
+      // Categorize based on keywords if not in a specific section
+      if (currentSection === 'other') {
+        const lowerText = text.toLowerCase();
+        if (lowerText.startsWith('add') || lowerText.startsWith('implement') ||
+            lowerText.includes('new feature')) {
+          changes.features.push(text);
+        } else if (lowerText.startsWith('fix') || lowerText.includes('bug fix')) {
+          changes.fixes.push(text);
+        } else if (lowerText.startsWith('improve') || lowerText.startsWith('update') ||
+                   lowerText.startsWith('enhance') || lowerText.startsWith('optimize')) {
+          changes.improvements.push(text);
+        } else if (text.length > 10) { // Only add substantial items
+          changes.other.push(text);
+        }
+      } else if (text.length > 10) {
+        changes[currentSection].push(text);
+      }
+    }
+  }
+
+  return changes;
 }
 
 export default async function ChangelogPage() {
@@ -84,9 +157,9 @@ export default async function ChangelogPage() {
       {/* Header */}
       <div className="bg-gradient-to-b from-gray-50 to-white border-b border-gray-200 py-16">
         <div className="max-w-4xl mx-auto px-6">
-          <h1 className="text-5xl font-bold mb-4">Changelog</h1>
+          <h1 className="text-5xl font-bold mb-4 text-gray-900">Changelog</h1>
           <p className="text-xl text-gray-600">
-            Latest releases and updates for kspec. Automatically updated from GitHub Releases.
+            Track the latest features, improvements, and fixes in kspec
           </p>
         </div>
       </div>
@@ -95,69 +168,145 @@ export default async function ChangelogPage() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         {releases.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">No releases found. Check back later.</p>
+            <p className="text-gray-500">No releases found</p>
           </div>
         ) : (
-          <div className="space-y-12">
-            {releases.map((release) => (
-              <article key={release.id} className="border-b border-gray-200 pb-12 last:border-0">
-                {/* Release header */}
-                <div className="flex items-baseline gap-4 mb-4">
-                  <h2 className="text-3xl font-bold">
+          <div className="space-y-16">
+            {releases.map((release) => {
+              const changes = parseReleaseBody(release.body);
+              const hasChanges = changes.features.length > 0 ||
+                                changes.improvements.length > 0 ||
+                                changes.fixes.length > 0 ||
+                                changes.other.length > 0;
+
+              return (
+                <article key={release.id} className="relative">
+                  {/* Version badge and date */}
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-primary-600" />
+                      <h2 className="text-3xl font-bold text-gray-900">
+                        {release.tag_name}
+                      </h2>
+                    </div>
+                    <time className="text-sm text-gray-500 font-medium">
+                      {formatDate(release.published_at)}
+                    </time>
+                  </div>
+
+                  {release.name && release.name !== release.tag_name && (
+                    <p className="text-lg text-gray-700 mb-6">{release.name}</p>
+                  )}
+
+                  {hasChanges ? (
+                    <div className="space-y-8">
+                      {/* Features */}
+                      {changes.features.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-emerald-500 rounded" />
+                            New Features
+                          </h3>
+                          <ul className="space-y-3">
+                            {changes.features.map((item, idx) => (
+                              <li key={idx} className="flex gap-3 text-gray-700 leading-relaxed">
+                                <span className="text-emerald-600 mt-1.5">●</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Improvements */}
+                      {changes.improvements.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-blue-500 rounded" />
+                            Improvements
+                          </h3>
+                          <ul className="space-y-3">
+                            {changes.improvements.map((item, idx) => (
+                              <li key={idx} className="flex gap-3 text-gray-700 leading-relaxed">
+                                <span className="text-blue-600 mt-1.5">●</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Bug Fixes */}
+                      {changes.fixes.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-amber-500 rounded" />
+                            Bug Fixes
+                          </h3>
+                          <ul className="space-y-3">
+                            {changes.fixes.map((item, idx) => (
+                              <li key={idx} className="flex gap-3 text-gray-700 leading-relaxed">
+                                <span className="text-amber-600 mt-1.5">●</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Other Changes */}
+                      {changes.other.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-gray-400 rounded" />
+                            Other Changes
+                          </h3>
+                          <ul className="space-y-3">
+                            {changes.other.map((item, idx) => (
+                              <li key={idx} className="flex gap-3 text-gray-700 leading-relaxed">
+                                <span className="text-gray-400 mt-1.5">●</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">See full release notes for details</p>
+                  )}
+
+                  {/* View on GitHub */}
+                  <div className="mt-8">
                     <a
                       href={release.html_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gray-900 hover:text-primary-600 transition-colors"
+                      className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
                     >
-                      {release.name || release.tag_name}
+                      View release on GitHub
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
                     </a>
-                  </h2>
-                  <span className="text-sm text-gray-500 font-medium">
-                    {release.tag_name}
-                  </span>
-                </div>
-
-                <div className="text-sm text-gray-500 mb-6">
-                  Released on {formatDate(release.published_at)}
-                </div>
-
-                {/* Release body */}
-                <div
-                  className="prose prose-gray max-w-none"
-                  dangerouslySetInnerHTML={{ __html: parseReleaseBody(release.body) }}
-                />
-
-                {/* View on GitHub link */}
-                <div className="mt-6">
-                  <a
-                    href={release.html_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary-600 hover:text-primary-700 text-sm font-medium inline-flex items-center gap-1"
-                  >
-                    View on GitHub
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-                </div>
-              </article>
-            ))}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
 
-        {/* Footer note */}
-        <div className="mt-12 text-center text-sm text-gray-500">
-          <p>This page automatically updates every 5 minutes from GitHub Releases.</p>
-          <p className="mt-2">
+        {/* Footer */}
+        <div className="mt-16 text-center">
+          <p className="text-sm text-gray-500">
+            Updates published automatically from{' '}
             <a
               href="https://github.com/cloudcwfranck/kspec/releases"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary-600 hover:text-primary-700"
             >
-              View all releases on GitHub →
+              GitHub Releases
             </a>
           </p>
         </div>
