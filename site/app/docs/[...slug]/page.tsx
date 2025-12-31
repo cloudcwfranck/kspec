@@ -44,7 +44,7 @@ export default function DocPage({ params }: PageProps) {
   const sidebar = getDocSidebar();
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex gap-12">
           {/* Sidebar */}
@@ -54,25 +54,25 @@ export default function DocPage({ params }: PageProps) {
 
           {/* Main Content */}
           <main className="flex-1 max-w-4xl">
-            <article className="prose prose-lg max-w-none">
-              <h1 className="text-5xl font-bold mb-4">{doc.frontmatter.title}</h1>
+            <article className="prose prose-lg max-w-none prose-invert">
+              <h1 className="text-5xl font-bold mb-4 text-white">{doc.frontmatter.title}</h1>
               {doc.frontmatter.description && (
-                <p className="text-xl text-gray-600 mb-8">{doc.frontmatter.description}</p>
+                <p className="text-xl text-[#a0a0a0] mb-8">{doc.frontmatter.description}</p>
               )}
 
               <MDXRemote source={doc.content} />
             </article>
 
             {/* Footer Navigation */}
-            <div className="mt-16 pt-8 border-t border-gray-200">
-              <div className="text-sm text-gray-500">
+            <div className="mt-16 pt-8 border-t border-[#2a2a2a]">
+              <div className="text-sm text-[#707070]">
                 <p>
                   Found an issue?{' '}
                   <a
                     href={`https://github.com/cloudcwfranck/kspec/edit/main/site/content/docs/${slug}.mdx`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary-600 hover:text-primary-700"
+                    className="text-primary-500 hover:text-primary-400"
                   >
                     Edit this page on GitHub
                   </a>

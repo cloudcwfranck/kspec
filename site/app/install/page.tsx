@@ -8,12 +8,12 @@ export const metadata: Metadata = {
 
 export default function InstallPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
-      <div className="bg-gradient-to-b from-gray-50 to-white border-b border-gray-200 py-16">
+      <div className="border-b border-[#2a2a2a] py-16">
         <div className="max-w-4xl mx-auto px-6">
-          <h1 className="text-5xl font-bold mb-4">Install kspec</h1>
-          <p className="text-xl text-gray-600">
+          <h1 className="text-5xl font-bold mb-4 text-white">Install kspec</h1>
+          <p className="text-xl text-[#a0a0a0]">
             Get started with kspec in your Kubernetes cluster
           </p>
         </div>
@@ -23,45 +23,45 @@ export default function InstallPage() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* Prerequisites */}
         <section className="mb-16">
-          <h2 className="text-3xl font-bold mb-6">Prerequisites</h2>
-          <div className="bg-gray-50 rounded-lg p-6 space-y-3">
+          <h2 className="text-3xl font-bold mb-6 text-white">Prerequisites</h2>
+          <div className="bg-[#1a1a1a] rounded-lg p-6 space-y-3 border border-[#2a2a2a]">
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-primary-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-primary-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span>Kubernetes cluster (v1.24+)</span>
+              <span className="text-[#a0a0a0]">Kubernetes cluster (v1.24+)</span>
             </div>
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-primary-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-primary-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span>kubectl configured with cluster access</span>
+              <span className="text-[#a0a0a0]">kubectl configured with cluster access</span>
             </div>
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-primary-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-primary-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span>cert-manager installed (for webhook certificates)</span>
+              <span className="text-[#a0a0a0]">cert-manager installed (for webhook certificates)</span>
             </div>
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-primary-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-primary-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span>Kyverno installed (policy engine)</span>
+              <span className="text-[#a0a0a0]">Kyverno installed (policy engine)</span>
             </div>
           </div>
         </section>
 
         {/* Step 1: Install Dependencies */}
         <section className="mb-16">
-          <h2 className="text-3xl font-bold mb-6">Step 1: Install Dependencies</h2>
+          <h2 className="text-3xl font-bold mb-6 text-white">Step 1: Install Dependencies</h2>
 
           <div className="space-y-8">
             {/* cert-manager */}
             <div>
-              <h3 className="text-xl font-semibold mb-3">Install cert-manager</h3>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                <pre className="text-gray-100 text-sm font-mono">
+              <h3 className="text-xl font-semibold mb-3 text-white">Install cert-manager</h3>
+              <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-4 overflow-x-auto">
+                <pre className="text-[#a0a0a0] text-sm font-mono">
 {`kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
 
 # Wait for cert-manager to be ready
@@ -72,14 +72,14 @@ kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager -
 
             {/* Kyverno */}
             <div>
-              <h3 className="text-xl font-semibold mb-3">Install Kyverno (via Helm)</h3>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-3">
-                <p className="text-sm text-amber-800">
+              <h3 className="text-xl font-semibold mb-3 text-white">Install Kyverno (via Helm)</h3>
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-3">
+                <p className="text-sm text-amber-400">
                   <strong>Important:</strong> You must install Kyverno using Helm, not raw manifests.
                 </p>
               </div>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                <pre className="text-gray-100 text-sm font-mono">
+              <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-4 overflow-x-auto">
+                <pre className="text-[#a0a0a0] text-sm font-mono">
 {`helm repo add kyverno https://kyverno.github.io/kyverno/
 helm repo update
 
@@ -96,14 +96,14 @@ helm install kyverno kyverno/kyverno \\
 
         {/* Step 2: Install kspec */}
         <section className="mb-16">
-          <h2 className="text-3xl font-bold mb-6">Step 2: Install kspec Operator</h2>
+          <h2 className="text-3xl font-bold mb-6 text-white">Step 2: Install kspec Operator</h2>
 
           <div className="space-y-6">
             {/* Using manifests */}
             <div>
-              <h3 className="text-xl font-semibold mb-3">Option A: Using kubectl</h3>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                <pre className="text-gray-100 text-sm font-mono">
+              <h3 className="text-xl font-semibold mb-3 text-white">Option A: Using kubectl</h3>
+              <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-4 overflow-x-auto">
+                <pre className="text-[#a0a0a0] text-sm font-mono">
 {`# Install CRDs
 kubectl apply -f https://raw.githubusercontent.com/cloudcwfranck/kspec/main/config/crd/bases/kspec.io_clusterspecifications.yaml
 kubectl apply -f https://raw.githubusercontent.com/cloudcwfranck/kspec/main/config/crd/bases/kspec.io_clustertargets.yaml
@@ -121,9 +121,9 @@ kubectl get pods -n kspec-system -l control-plane=controller-manager`}
 
             {/* Using kustomize */}
             <div>
-              <h3 className="text-xl font-semibold mb-3">Option B: Using kustomize</h3>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                <pre className="text-gray-100 text-sm font-mono">
+              <h3 className="text-xl font-semibold mb-3 text-white">Option B: Using kustomize</h3>
+              <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-4 overflow-x-auto">
+                <pre className="text-[#a0a0a0] text-sm font-mono">
 {`# Clone the repository
 git clone https://github.com/cloudcwfranck/kspec.git
 cd kspec
@@ -141,17 +141,17 @@ kubectl get deployment -n kspec-system kspec-operator-controller-manager`}
 
         {/* Step 3: Create first spec */}
         <section className="mb-16">
-          <h2 className="text-3xl font-bold mb-6">Step 3: Create Your First ClusterSpecification</h2>
-          <p className="text-gray-600 mb-6">
+          <h2 className="text-3xl font-bold mb-6 text-white">Step 3: Create Your First ClusterSpecification</h2>
+          <p className="text-[#a0a0a0] mb-6">
             Create a ClusterTarget to reference your cluster, then define a ClusterSpecification with policies.
           </p>
 
           <div className="space-y-6">
             {/* ClusterTarget */}
             <div>
-              <h3 className="text-lg font-semibold mb-3">Create ClusterTarget</h3>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                <pre className="text-gray-100 text-sm font-mono">
+              <h3 className="text-lg font-semibold mb-3 text-white">Create ClusterTarget</h3>
+              <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-4 overflow-x-auto">
+                <pre className="text-[#a0a0a0] text-sm font-mono">
 {`cat <<EOF | kubectl apply -f -
 apiVersion: kspec.io/v1alpha1
 kind: ClusterTarget
@@ -169,9 +169,9 @@ EOF`}
 
             {/* ClusterSpecification */}
             <div>
-              <h3 className="text-lg font-semibold mb-3">Create ClusterSpecification</h3>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                <pre className="text-gray-100 text-sm font-mono">
+              <h3 className="text-lg font-semibold mb-3 text-white">Create ClusterSpecification</h3>
+              <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-4 overflow-x-auto">
+                <pre className="text-[#a0a0a0] text-sm font-mono">
 {`cat <<EOF | kubectl apply -f -
 apiVersion: kspec.io/v1alpha1
 kind: ClusterSpecification
@@ -220,9 +220,9 @@ EOF`}
 
         {/* Step 4: Verify */}
         <section className="mb-16">
-          <h2 className="text-3xl font-bold mb-6">Step 4: Verify Installation</h2>
-          <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-            <pre className="text-gray-100 text-sm font-mono">
+          <h2 className="text-3xl font-bold mb-6 text-white">Step 4: Verify Installation</h2>
+          <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-4 overflow-x-auto">
+            <pre className="text-[#a0a0a0] text-sm font-mono">
 {`# Check operator logs
 kubectl logs -n kspec-system -l control-plane=controller-manager --tail=20
 
@@ -241,33 +241,33 @@ kubectl patch clusterspecification production-spec -n kspec-system \\
         </section>
 
         {/* Next Steps */}
-        <section className="bg-primary-50 rounded-xl p-8 border border-primary-100">
-          <h2 className="text-2xl font-bold mb-4">Next Steps</h2>
+        <section className="bg-primary-600/10 rounded-xl p-8 border border-primary-600/20">
+          <h2 className="text-2xl font-bold mb-4 text-white">Next Steps</h2>
           <ul className="space-y-3">
             <li className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-primary-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-primary-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <Link href="/docs/getting-started" className="font-medium text-primary-600 hover:text-primary-700">
+                <Link href="/docs/getting-started" className="font-medium text-primary-500 hover:text-primary-400">
                   Getting Started Guide →
                 </Link>
-                <p className="text-sm text-gray-600 mt-1">Learn the basics of kspec</p>
+                <p className="text-sm text-[#a0a0a0] mt-1">Learn the basics of kspec</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-primary-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-primary-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <Link href="/docs/guides" className="font-medium text-primary-600 hover:text-primary-700">
+                <Link href="/docs/guides" className="font-medium text-primary-500 hover:text-primary-400">
                   Policy Guide →
                 </Link>
-                <p className="text-sm text-gray-600 mt-1">Write effective security policies</p>
+                <p className="text-sm text-[#a0a0a0] mt-1">Write effective security policies</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-primary-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-primary-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
@@ -275,25 +275,25 @@ kubectl patch clusterspecification production-spec -n kspec-system \\
                   href="https://github.com/cloudcwfranck/kspec/tree/main/examples"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-primary-600 hover:text-primary-700"
+                  className="font-medium text-primary-500 hover:text-primary-400"
                 >
                   Example Policies →
                 </a>
-                <p className="text-sm text-gray-600 mt-1">Browse pre-built policy examples</p>
+                <p className="text-sm text-[#a0a0a0] mt-1">Browse pre-built policy examples</p>
               </div>
             </li>
           </ul>
         </section>
 
         {/* Support */}
-        <div className="mt-12 text-center text-sm text-gray-500">
+        <div className="mt-12 text-center text-sm text-[#707070]">
           <p>
             Need help?{' '}
             <a
               href="https://github.com/cloudcwfranck/kspec/issues"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-600 hover:text-primary-700"
+              className="text-primary-500 hover:text-primary-400"
             >
               Open an issue on GitHub
             </a>

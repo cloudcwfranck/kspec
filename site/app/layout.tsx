@@ -48,7 +48,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className={`${inter.className} antialiased bg-white text-gray-900`}>
+      <body className={`${inter.className} antialiased bg-[#0a0a0a] text-white`}>
         <Navigation />
         <main className="min-h-screen">{children}</main>
         <Footer />

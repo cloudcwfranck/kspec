@@ -8,30 +8,19 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Linear-inspired palette
+        // Linear dark theme colors
         primary: {
-          50: '#f0f4ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          400: '#a78bfa',
+          500: '#8b5cf6',
+          600: '#7c3aed',
+          700: '#6d28d9',
         },
-        gray: {
-          50: '#fafafa',
-          100: '#f4f4f5',
-          200: '#e4e4e7',
-          300: '#d4d4d8',
-          400: '#a1a1aa',
-          500: '#71717a',
-          600: '#52525b',
-          700: '#3f3f46',
-          800: '#27272a',
-          900: '#18181b',
+        dark: {
+          50: '#1a1a1a',   // Slightly lighter than bg
+          100: '#0a0a0a',  // Main background
+          200: '#050505',  // Darker areas
+          300: '#2a2a2a',  // Hover states
+          400: '#3a3a3a',  // Borders
         },
       },
       fontFamily: {
@@ -53,34 +42,18 @@ module.exports = {
           'monospace',
         ],
       },
-      typography: {
-        DEFAULT: {
-          css: {
-            maxWidth: 'none',
-            color: '#18181b',
-            a: {
-              color: '#4f46e5',
-              '&:hover': {
-                color: '#4338ca',
-              },
-              textDecoration: 'none',
-              fontWeight: '500',
-            },
-            code: {
-              color: '#4338ca',
-              backgroundColor: '#f4f4f5',
-              padding: '0.2em 0.4em',
-              borderRadius: '0.25rem',
-              fontWeight: '500',
-            },
-            'code::before': {
-              content: '""',
-            },
-            'code::after': {
-              content: '""',
-            },
-          },
-        },
+      backgroundColor: {
+        'dark-bg': '#0a0a0a',
+        'dark-card': '#1a1a1a',
+        'dark-hover': '#2a2a2a',
+      },
+      borderColor: {
+        'dark-border': '#2a2a2a',
+      },
+      textColor: {
+        'dark-primary': '#ffffff',
+        'dark-secondary': '#a0a0a0',
+        'dark-tertiary': '#707070',
       },
     },
   },
