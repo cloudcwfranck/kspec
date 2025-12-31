@@ -229,15 +229,15 @@ export default async function StatusPage() {
   const allOperational = indicators.every(i => i.status === 'operational');
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-linear-bg">
       {/* Header */}
-      <div className="bg-gradient-to-b from-gray-50 to-white border-b border-gray-200 py-16">
+      <div className="border-b border-linear-border py-16">
         <div className="max-w-4xl mx-auto px-6">
           <div className="flex items-center gap-4 mb-4">
             <div className={`w-3 h-3 rounded-full ${allOperational ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
-            <h1 className="text-5xl font-bold">System Status</h1>
+            <h1 className="text-5xl font-bold text-linear-text">System Status</h1>
           </div>
-          <p className="text-xl text-gray-600">
+          <p className="text-xl text-linear-text-secondary">
             Real-time status of kspec infrastructure and services
           </p>
         </div>
@@ -245,14 +245,14 @@ export default async function StatusPage() {
 
       {/* Overall Status */}
       <div className="max-w-4xl mx-auto px-6 py-12">
-        <div className={`rounded-xl p-8 mb-12 ${allOperational ? 'bg-emerald-50 border-2 border-emerald-200' : 'bg-amber-50 border-2 border-amber-200'}`}>
+        <div className={`rounded-xl p-8 mb-12 ${allOperational ? 'bg-emerald-500/10 border-2 border-emerald-500/30' : 'bg-amber-500/10 border-2 border-amber-500/30'}`}>
           <div className="flex items-center gap-3 mb-2">
             <div className={`w-4 h-4 rounded-full ${allOperational ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-2xl font-bold text-linear-text">
               {allOperational ? 'All Systems Operational' : 'Some Systems Degraded'}
             </h2>
           </div>
-          <p className="text-gray-600">
+          <p className="text-linear-text-secondary">
             {allOperational
               ? 'All monitored systems are functioning normally.'
               : 'One or more systems are experiencing issues.'}
@@ -264,16 +264,16 @@ export default async function StatusPage() {
           {indicators.map((indicator) => (
             <div
               key={indicator.name}
-              className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+              className="bg-linear-surface border border-linear-border rounded-xl p-6 hover:border-linear-border transition-colors"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(indicator.status)}`} />
-                    <h3 className="font-semibold text-lg">{indicator.name}</h3>
+                    <h3 className="font-semibold text-lg text-linear-text">{indicator.name}</h3>
                   </div>
-                  <p className="text-gray-600 text-sm mb-1">{indicator.message}</p>
-                  <p className="text-gray-400 text-xs">
+                  <p className="text-linear-text-secondary text-sm mb-1">{indicator.message}</p>
+                  <p className="text-linear-text-muted text-xs">
                     Updated {formatRelativeTime(indicator.lastUpdated)}
                   </p>
                 </div>
@@ -281,10 +281,10 @@ export default async function StatusPage() {
                   <span
                     className={`text-sm font-medium px-3 py-1 rounded-full ${
                       indicator.status === 'operational'
-                        ? 'bg-emerald-100 text-emerald-700'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                         : indicator.status === 'degraded'
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-gray-100 text-gray-700'
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                        : 'bg-gray-500/10 text-gray-400 border border-gray-500/30'
                     }`}
                   >
                     {getStatusText(indicator.status)}
@@ -294,7 +294,7 @@ export default async function StatusPage() {
                       href={indicator.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary-600 hover:text-primary-700"
+                      className="text-accent hover:text-accent-hover"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -308,7 +308,7 @@ export default async function StatusPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 text-center text-sm text-gray-500">
+        <div className="mt-12 text-center text-sm text-linear-text-muted">
           <p>Status data automatically refreshes every 60 seconds.</p>
           <p className="mt-2">
             Data sourced from{' '}
@@ -316,7 +316,7 @@ export default async function StatusPage() {
               href="https://github.com/cloudcwfranck/kspec/actions"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-600 hover:text-primary-700"
+              className="text-accent hover:text-accent-hover"
             >
               GitHub Actions
             </a>
@@ -325,7 +325,7 @@ export default async function StatusPage() {
               href="https://github.com/cloudcwfranck/kspec/releases"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-600 hover:text-primary-700"
+              className="text-accent hover:text-accent-hover"
             >
               GitHub Releases
             </a>

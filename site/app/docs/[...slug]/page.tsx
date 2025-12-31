@@ -1,10 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MDXRemote } from 'next-mdx-remote/rsc';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeSlug from 'rehype-slug';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
-import remarkGfm from 'remark-gfm';
 import { getAllDocs, getDocBySlug, getDocSidebar } from '@/lib/docs';
 import DocSidebar from '@/components/DocSidebar';
 
@@ -48,7 +44,7 @@ export default function DocPage({ params }: PageProps) {
   const sidebar = getDocSidebar();
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-linear-bg">
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex gap-12">
           {/* Sidebar */}
@@ -58,37 +54,25 @@ export default function DocPage({ params }: PageProps) {
 
           {/* Main Content */}
           <main className="flex-1 max-w-4xl">
-            <article className="prose prose-lg max-w-none">
-              <h1 className="text-5xl font-bold mb-4">{doc.frontmatter.title}</h1>
+            <article className="prose prose-lg max-w-none prose-invert">
+              <h1 className="text-5xl font-bold mb-4 text-linear-text">{doc.frontmatter.title}</h1>
               {doc.frontmatter.description && (
-                <p className="text-xl text-gray-600 mb-8">{doc.frontmatter.description}</p>
+                <p className="text-xl text-linear-text-secondary mb-8">{doc.frontmatter.description}</p>
               )}
 
-              <MDXRemote
-                source={doc.content}
-                options={{
-                  mdxOptions: {
-                    remarkPlugins: [remarkGfm],
-                    rehypePlugins: [
-                      rehypeHighlight,
-                      rehypeSlug,
-                      [rehypeAutolinkHeadings, { behavior: 'wrap' }],
-                    ],
-                  },
-                }}
-              />
+              <MDXRemote source={doc.content} />
             </article>
 
             {/* Footer Navigation */}
-            <div className="mt-16 pt-8 border-t border-gray-200">
-              <div className="text-sm text-gray-500">
+            <div className="mt-16 pt-8 border-t border-linear-border">
+              <div className="text-sm text-linear-text-muted">
                 <p>
                   Found an issue?{' '}
                   <a
                     href={`https://github.com/cloudcwfranck/kspec/edit/main/site/content/docs/${slug}.mdx`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary-600 hover:text-primary-700"
+                    className="text-accent hover:text-accent-hover"
                   >
                     Edit this page on GitHub
                   </a>
