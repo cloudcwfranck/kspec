@@ -229,15 +229,15 @@ export default async function StatusPage() {
   const allOperational = indicators.every(i => i.status === 'operational');
 
   return (
-    <div className="min-h-screen bg-linear-bg">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="border-b border-linear-border py-16">
+      <div className="border-b border-gray-200 py-16">
         <div className="max-w-4xl mx-auto px-6">
           <div className="flex items-center gap-4 mb-4">
             <div className={`w-3 h-3 rounded-full ${allOperational ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
-            <h1 className="text-5xl font-bold text-linear-text">System Status</h1>
+            <h1 className="text-5xl font-bold text-gray-900">System Status</h1>
           </div>
-          <p className="text-xl text-linear-text-secondary">
+          <p className="text-xl text-gray-900-secondary">
             Real-time status of kspec infrastructure and services
           </p>
         </div>
@@ -248,11 +248,11 @@ export default async function StatusPage() {
         <div className={`rounded-xl p-8 mb-12 ${allOperational ? 'bg-emerald-500/10 border-2 border-emerald-500/30' : 'bg-amber-500/10 border-2 border-amber-500/30'}`}>
           <div className="flex items-center gap-3 mb-2">
             <div className={`w-4 h-4 rounded-full ${allOperational ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            <h2 className="text-2xl font-bold text-linear-text">
+            <h2 className="text-2xl font-bold text-gray-900">
               {allOperational ? 'All Systems Operational' : 'Some Systems Degraded'}
             </h2>
           </div>
-          <p className="text-linear-text-secondary">
+          <p className="text-gray-900-secondary">
             {allOperational
               ? 'All monitored systems are functioning normally.'
               : 'One or more systems are experiencing issues.'}
@@ -264,16 +264,16 @@ export default async function StatusPage() {
           {indicators.map((indicator) => (
             <div
               key={indicator.name}
-              className="bg-linear-surface border border-linear-border rounded-xl p-6 hover:border-linear-border transition-colors"
+              className="bg-white border border-gray-200 rounded-xl p-6 hover:border-gray-200 transition-colors"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(indicator.status)}`} />
-                    <h3 className="font-semibold text-lg text-linear-text">{indicator.name}</h3>
+                    <h3 className="font-semibold text-lg text-gray-900">{indicator.name}</h3>
                   </div>
-                  <p className="text-linear-text-secondary text-sm mb-1">{indicator.message}</p>
-                  <p className="text-linear-text-muted text-xs">
+                  <p className="text-gray-900-secondary text-sm mb-1">{indicator.message}</p>
+                  <p className="text-gray-900-muted text-xs">
                     Updated {formatRelativeTime(indicator.lastUpdated)}
                   </p>
                 </div>
@@ -294,7 +294,7 @@ export default async function StatusPage() {
                       href={indicator.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-accent hover:text-accent-hover"
+                      className="text-primary-600 hover:text-primary-600-hover"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -308,7 +308,7 @@ export default async function StatusPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 text-center text-sm text-linear-text-muted">
+        <div className="mt-12 text-center text-sm text-gray-900-muted">
           <p>Status data automatically refreshes every 60 seconds.</p>
           <p className="mt-2">
             Data sourced from{' '}
@@ -316,7 +316,7 @@ export default async function StatusPage() {
               href="https://github.com/cloudcwfranck/kspec/actions"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent hover:text-accent-hover"
+              className="text-primary-600 hover:text-primary-600-hover"
             >
               GitHub Actions
             </a>
@@ -325,7 +325,7 @@ export default async function StatusPage() {
               href="https://github.com/cloudcwfranck/kspec/releases"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent hover:text-accent-hover"
+              className="text-primary-600 hover:text-primary-600-hover"
             >
               GitHub Releases
             </a>
