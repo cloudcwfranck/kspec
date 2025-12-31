@@ -12,17 +12,18 @@ This document provides detailed API documentation for all kspec Custom Resource 
 
 Defines the desired security and compliance posture for a Kubernetes cluster.
 
-### API Version
-
-`kspec.io/v1alpha1`
+**API Version:** `kspec.io/v1alpha1`
 
 ### Spec Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `targetClusterRef` | Object | Yes | Reference to the target cluster |
-| `enforcementMode` | String | Yes | `monitor` or `enforce` |
-| `policies` | Array | Yes | List of policy definitions |
+**targetClusterRef** (Object, Required)
+Reference to the target cluster
+
+**enforcementMode** (String, Required)
+Enforcement mode: `monitor` or `enforce`
+
+**policies** (Array, Required)
+List of policy definitions
 
 ### Example
 
@@ -52,28 +53,34 @@ spec:
 
 ### Status Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `conditions` | Array | Current state of the specification |
-| `observedGeneration` | Integer | Latest generation observed |
-| `phase` | String | Current phase: `Pending`, `Active`, `Failed` |
+**conditions** (Array)
+Current state of the specification
+
+**observedGeneration** (Integer)
+Latest generation observed
+
+**phase** (String)
+Current phase: `Pending`, `Active`, or `Failed`
 
 ## ClusterTarget
 
 Represents a Kubernetes cluster to apply policies to.
 
-### API Version
-
-`kspec.io/v1alpha1`
+**API Version:** `kspec.io/v1alpha1`
 
 ### Spec Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `inCluster` | Boolean | No | Whether this is the current cluster |
-| `kubeconfig` | Object | No | Kubeconfig for remote cluster |
-| `platform` | String | No | Cloud platform: `eks`, `gke`, `aks`, `kind`, etc. |
-| `version` | String | Yes | Kubernetes version |
+**inCluster** (Boolean, Optional)
+Whether this is the current cluster
+
+**kubeconfig** (Object, Optional)
+Kubeconfig for remote cluster
+
+**platform** (String, Optional)
+Cloud platform: `eks`, `gke`, `aks`, `kind`, etc.
+
+**version** (String, Required)
+Kubernetes version
 
 ### Example: In-Cluster
 
@@ -111,27 +118,35 @@ spec:
 
 Generated automatically by kspec to track compliance status.
 
-### API Version
-
-`kspec.io/v1alpha1`
+**API Version:** `kspec.io/v1alpha1`
 
 ### Spec Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `clusterRef` | Object | Reference to the target cluster |
-| `specRef` | Object | Reference to the ClusterSpecification |
-| `timestamp` | String | When the report was generated |
+**clusterRef** (Object)
+Reference to the target cluster
+
+**specRef** (Object)
+Reference to the ClusterSpecification
+
+**timestamp** (String)
+When the report was generated
 
 ### Status Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `totalPolicies` | Integer | Total number of policies |
-| `compliantPolicies` | Integer | Number of compliant policies |
-| `violationCount` | Integer | Total violations found |
-| `complianceScore` | Float | Overall compliance percentage |
-| `policyResults` | Array | Detailed results per policy |
+**totalPolicies** (Integer)
+Total number of policies
+
+**compliantPolicies** (Integer)
+Number of compliant policies
+
+**violationCount** (Integer)
+Total violations found
+
+**complianceScore** (Float)
+Overall compliance percentage
+
+**policyResults** (Array)
+Detailed results per policy
 
 ### Example
 
@@ -168,30 +183,32 @@ status:
 
 Tracks configuration drift between desired and actual policies.
 
-### API Version
-
-`kspec.io/v1alpha1`
+**API Version:** `kspec.io/v1alpha1`
 
 ### Spec Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `clusterRef` | Object | Reference to the target cluster |
-| `specRef` | Object | Reference to the ClusterSpecification |
-| `timestamp` | String | When drift detection ran |
+**clusterRef** (Object)
+Reference to the target cluster
+
+**specRef** (Object)
+Reference to the ClusterSpecification
+
+**timestamp** (String)
+When drift detection ran
 
 ### Status Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `driftDetected` | Boolean | Whether drift was detected |
-| `driftEvents` | Array | List of drift events |
+**driftDetected** (Boolean)
+Whether drift was detected
+
+**driftEvents** (Array)
+List of drift events
 
 ### Drift Event Types
 
-- `missing`: Expected policy not found in cluster
-- `modified`: Policy exists but differs from specification
-- `extra`: Unexpected policy found in cluster
+- **missing:** Expected policy not found in cluster
+- **modified:** Policy exists but differs from specification
+- **extra:** Unexpected policy found in cluster
 
 ### Example
 
@@ -213,12 +230,7 @@ status:
     - type: "modified"
       policyID: "pod-security"
       resourceName: "require-run-as-non-root"
-      message: "Policy validationFailureAction changed from 'enforce' to 'audit'"
-      detectedAt: "2025-12-30T10:15:00Z"
-    - type: "missing"
-      policyID: "network-isolation"
-      resourceName: "require-network-policy"
-      message: "Expected policy not found in cluster"
+      message: "Policy validationFailureAction changed"
       detectedAt: "2025-12-30T10:15:00Z"
 ```
 
@@ -228,117 +240,31 @@ Policies are defined within ClusterSpecification resources.
 
 ### Policy Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | String | Yes | Unique policy identifier |
-| `title` | String | Yes | Human-readable title |
-| `description` | String | No | Detailed description |
-| `severity` | String | Yes | `critical`, `high`, `medium`, `low` |
-| `checks` | Array | Yes | List of validation checks |
+**id** (String, Required)
+Unique policy identifier
+
+**title** (String, Required)
+Human-readable title
+
+**description** (String, Optional)
+Detailed description
+
+**severity** (String, Required)
+Policy severity: `critical`, `high`, `medium`, or `low`
+
+**checks** (Array, Required)
+List of validation checks
 
 ### Check Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | String | Yes | Unique check identifier |
-| `title` | String | No | Human-readable title |
-| `kyvernoPolicy` | String | Yes | Kyverno policy YAML |
+**id** (String, Required)
+Unique check identifier
 
-### Advanced Policy Features
+**title** (String, Optional)
+Human-readable title
 
-#### Time-Based Activation
-
-```yaml
-policies:
-  - id: "business-hours-restrictions"
-    timeBasedActivation:
-      enabled: true
-      timezone: "America/New_York"
-      activePeriods:
-        - startTime: "09:00"
-          endTime: "17:00"
-          daysOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-```
-
-#### Policy Exemptions
-
-```yaml
-policies:
-  - id: "require-limits"
-    policyExemptions:
-      - name: "ci-exemption"
-        reason: "CI runners need dynamic resources"
-        approver: "platform-team@example.com"
-        expiresAt: "2026-01-01T00:00:00Z"
-        namespaces:
-          - ci
-        resources:
-          - kind: Pod
-            name: "*-runner"
-```
-
-#### Namespace Scoping
-
-```yaml
-policies:
-  - id: "prod-security"
-    namespaceScope:
-      includeNamespaces:
-        - production
-        - staging
-      excludeNamespaces:
-        - kube-system
-```
-
-## Labels and Annotations
-
-### Common Labels
-
-```yaml
-metadata:
-  labels:
-    app.kubernetes.io/name: kspec
-    app.kubernetes.io/component: policy-enforcement
-    app.kubernetes.io/managed-by: kspec-operator
-```
-
-### Annotations
-
-```yaml
-metadata:
-  annotations:
-    kspec.io/last-applied: "2025-12-30T10:00:00Z"
-    kspec.io/compliance-score: "95.5"
-    kspec.io/drift-detected: "false"
-```
-
-## Webhooks
-
-kspec uses admission webhooks for real-time policy enforcement.
-
-### ValidatingWebhookConfiguration
-
-Created automatically when `enforcementMode: enforce`:
-
-```yaml
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: kspec-validating-webhook
-webhooks:
-  - name: validate.kspec.io
-    clientConfig:
-      service:
-        name: kspec-webhook
-        namespace: kspec-system
-        path: /validate
-      caBundle: <base64-encoded-ca>
-    rules:
-      - operations: ["CREATE", "UPDATE"]
-        apiGroups: ["*"]
-        apiVersions: ["*"]
-        resources: ["pods", "deployments", "services"]
-```
+**kyvernoPolicy** (String, Required)
+Kyverno policy YAML
 
 ## Metrics
 
@@ -346,12 +272,17 @@ kspec exposes Prometheus metrics for monitoring.
 
 ### Available Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `kspec_compliance_score` | Gauge | Overall compliance percentage |
-| `kspec_policy_violations_total` | Counter | Total policy violations |
-| `kspec_drift_events_total` | Counter | Total drift events detected |
-| `kspec_reconciliation_duration_seconds` | Histogram | Controller reconciliation time |
+**kspec_compliance_score** (Gauge)
+Overall compliance percentage
+
+**kspec_policy_violations_total** (Counter)
+Total policy violations
+
+**kspec_drift_events_total** (Counter)
+Total drift events detected
+
+**kspec_reconciliation_duration_seconds** (Histogram)
+Controller reconciliation time
 
 ### Example Prometheus Query
 
@@ -370,7 +301,7 @@ rate(kspec_drift_events_total[5m])
 
 Required permissions for kspec operator.
 
-### ClusterRole
+### ClusterRole Example
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1

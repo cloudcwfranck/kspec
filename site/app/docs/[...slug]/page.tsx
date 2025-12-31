@@ -1,7 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MDXRemote } from 'next-mdx-remote/rsc';
-import remarkGfm from 'remark-gfm';
 import { getAllDocs, getDocBySlug, getDocSidebar } from '@/lib/docs';
 import DocSidebar from '@/components/DocSidebar';
 
@@ -61,14 +60,7 @@ export default function DocPage({ params }: PageProps) {
                 <p className="text-xl text-gray-600 mb-8">{doc.frontmatter.description}</p>
               )}
 
-              <MDXRemote
-                source={doc.content}
-                options={{
-                  mdxOptions: {
-                    remarkPlugins: [remarkGfm],
-                  },
-                }}
-              />
+              <MDXRemote source={doc.content} />
             </article>
 
             {/* Footer Navigation */}
