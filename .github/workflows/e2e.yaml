@@ -24,7 +24,7 @@ jobs:
         run: go build -o kspec ./cmd/kspec
 
       - name: Set up kind
-        uses: helm/kind-action@v1
+        uses: helm/kind-action@v1.10.0
         with:
           cluster_name: kspec-test
           node_image: kindest/node:v1.29.0
