@@ -1,0 +1,340 @@
+---
+title: Writing Policies
+description: Learn how to write effective security and compliance policies with kspec
+order: 10
+---
+
+# Writing Effective Policies
+
+This guide will help you write clear, maintainable, and effective security policies for your Kubernetes clusters.
+
+## Policy Structure
+
+A kspec policy consists of:
+
+1. **Metadata**: ID, title, description, and severity
+2. **Checks**: One or more validation checks
+3. **Kyverno Policy**: The actual policy implementation
+
+### Example Policy
+
+```yaml
+policies:
+  - id: "image-security"
+    title: "Container Image Security"
+    description: "Enforce trusted container registries and image signing"
+    severity: high
+    checks:
+      - id: "allowed-registries"
+        title: "Only allow approved registries"
+        kyvernoPolicy: |
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          metadata:
+            name: allowed-registries
+          spec:
+            validationFailureAction: enforce
+            background: true
+            rules:
+            - name: check-registry
+              match:
+                any:
+                - resources:
+                    kinds:
+                    - Pod
+              validate:
+                message: "Images must come from approved registries"
+                pattern:
+                  spec:
+                    containers:
+                    - image: "gcr.io/* | ghcr.io/* | *.azurecr.io/*"
+```
+
+## Best Practices
+
+### 1. Start with Monitor Mode
+
+Always test policies in `monitor` mode first:
+
+```yaml
+spec:
+  enforcementMode: monitor  # Test first
+```
+
+Review compliance reports to understand the impact before switching to `enforce`.
+
+### 2. Use Descriptive Messages
+
+Make validation messages clear and actionable:
+
+```yaml
+validate:
+  message: "Pods must define resource limits (CPU and memory) to prevent resource exhaustion"
+  pattern:
+    spec:
+      containers:
+      - resources:
+          limits:
+            memory: "?*"
+            cpu: "?*"
+```
+
+### 3. Set Appropriate Severity
+
+Use severity levels to prioritize remediation:
+
+- **critical**: Security vulnerabilities, compliance violations
+- **high**: Important security controls
+- **medium**: Best practices, operational requirements
+- **low**: Recommendations, style guidelines
+
+### 4. Exclude System Namespaces
+
+Exclude kube-system and other critical namespaces:
+
+```yaml
+spec:
+  rules:
+  - name: check-pod-security
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - kube-public
+          - kube-node-lease
+          - kspec-system
+          - kyverno
+```
+
+## Common Policy Patterns
+
+### Pod Security
+
+Enforce baseline pod security standards:
+
+```yaml
+policies:
+  - id: "pod-security-baseline"
+    title: "Pod Security Baseline"
+    severity: high
+    checks:
+      - id: "no-privileged"
+        title: "Disallow privileged containers"
+        kyvernoPolicy: |
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          metadata:
+            name: disallow-privileged
+          spec:
+            validationFailureAction: enforce
+            rules:
+            - name: check-privileged
+              match:
+                any:
+                - resources:
+                    kinds:
+                    - Pod
+              validate:
+                message: "Privileged containers are not allowed"
+                pattern:
+                  spec:
+                    containers:
+                    - =(securityContext):
+                        =(privileged): false
+```
+
+### Network Policies
+
+Require network policies for all namespaces:
+
+```yaml
+policies:
+  - id: "network-isolation"
+    title: "Network Isolation"
+    severity: medium
+    checks:
+      - id: "require-network-policy"
+        kyvernoPolicy: |
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          metadata:
+            name: require-network-policy
+          spec:
+            validationFailureAction: audit
+            rules:
+            - name: check-network-policy
+              match:
+                any:
+                - resources:
+                    kinds:
+                    - Namespace
+              validate:
+                message: "Namespaces must have a NetworkPolicy"
+                deny:
+                  conditions:
+                    all:
+                    - key: "{{request.object.metadata.name}}"
+                      operator: NotIn
+                      value: [kube-system, kube-public, kspec-system]
+```
+
+### RBAC Controls
+
+Restrict ClusterRole permissions:
+
+```yaml
+policies:
+  - id: "rbac-restrictions"
+    title: "RBAC Permission Controls"
+    severity: critical
+    checks:
+      - id: "no-wildcard-roles"
+        kyvernoPolicy: |
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          metadata:
+            name: restrict-wildcard-verbs
+          spec:
+            validationFailureAction: enforce
+            rules:
+            - name: wildcard-verbs
+              match:
+                any:
+                - resources:
+                    kinds:
+                    - ClusterRole
+                    - Role
+              validate:
+                message: "Use of wildcard ('*') in verbs is forbidden"
+                pattern:
+                  rules:
+                  - verbs:
+                      X(*): "*"
+```
+
+## Testing Policies
+
+### 1. Create Test Resources
+
+Create sample resources that should pass and fail:
+
+```bash
+# This should PASS
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compliant-pod
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+  containers:
+  - name: app
+    image: nginx:1.21
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+EOF
+
+# This should FAIL
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: non-compliant-pod
+spec:
+  containers:
+  - name: app
+    image: nginx:1.21
+    securityContext:
+      privileged: true
+EOF
+```
+
+### 2. Review Policy Reports
+
+Check Kyverno policy reports:
+
+```bash
+kubectl get policyreport -A
+kubectl describe policyreport <report-name>
+```
+
+## Advanced Features
+
+### Time-Based Policies
+
+Activate policies during specific time windows:
+
+```yaml
+spec:
+  policies:
+    - id: "maintenance-restrictions"
+      timeBasedActivation:
+        enabled: true
+        timezone: "America/New_York"
+        activePeriods:
+          - startTime: "09:00"
+            endTime: "17:00"
+            daysOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+```
+
+### Policy Exemptions
+
+Grant exemptions for specific resources:
+
+```yaml
+spec:
+  policies:
+    - id: "require-limits"
+      policyExemptions:
+        - name: "ci-runners-exemption"
+          reason: "CI runners need unbounded resources"
+          approver: "security-team@example.com"
+          expiresAt: "2025-12-31T23:59:59Z"
+          namespaces:
+            - ci-runners
+```
+
+## Troubleshooting
+
+### Policy Not Applied
+
+Check the ClusterSpecification status:
+
+```bash
+kubectl get clusterspecification -n kspec-system -o yaml
+```
+
+Look for error messages in the status field.
+
+### Webhook Failures
+
+Check webhook configuration:
+
+```bash
+kubectl get validatingwebhookconfiguration | grep kyverno
+kubectl describe validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg
+```
+
+### Controller Logs
+
+View kspec controller logs:
+
+```bash
+kubectl logs -n kspec-system -l control-plane=controller-manager --tail=100
+```
+
+## Next Steps
+
+- [Multi-Cluster Setup](/docs/guides/multi-cluster) - Apply policies across multiple clusters
+- [Drift Detection](/docs/guides/drift-detection) - Monitor and remediate policy drift
+- [API Reference](/docs/api-reference) - Complete CRD documentation
