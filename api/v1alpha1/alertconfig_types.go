@@ -138,18 +138,7 @@ type AlertRoute struct {
 	Continue bool `json:"continue,omitempty"`
 }
 
-// SecretReference is a reference to a secret key
-type SecretReference struct {
-	// Name is the name of the secret
-	Name string `json:"name"`
-
-	// Namespace is the namespace of the secret (defaults to AlertConfig namespace)
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
-
-	// Key is the key in the secret data
-	Key string `json:"key"`
-}
+// Note: SecretReference is defined in clustertarget_types.go
 
 // AlertConfigStatus defines the observed state of AlertConfig
 type AlertConfigStatus struct {

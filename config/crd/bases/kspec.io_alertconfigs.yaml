@@ -1,0 +1,356 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: alertconfigs.kspec.io
+spec:
+  group: kspec.io
+  names:
+    kind: AlertConfig
+    listKind: AlertConfigList
+    plural: alertconfigs
+    shortNames:
+    - ac
+    singular: alertconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.slack.enabled
+      name: Slack
+      type: boolean
+    - jsonPath: .spec.webhooks[*].name
+      name: Webhooks
+      type: integer
+    - jsonPath: .status.alertsSent
+      name: Alerts Sent
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AlertConfig is the Schema for the alertconfigs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AlertConfigSpec defines the desired state of AlertConfig
+            properties:
+              defaultSeverity:
+                default: warning
+                description: 'DefaultSeverity is the minimum severity level for alerts
+                  (default: warning)'
+                enum:
+                - info
+                - warning
+                - critical
+                type: string
+              enabled:
+                default: true
+                description: Enabled globally enables or disables all alerting
+                type: boolean
+              routes:
+                description: Routes defines how alerts are routed to different notifiers
+                items:
+                  description: AlertRoute defines how alerts are routed based on labels
+                  properties:
+                    continue:
+                      default: false
+                      description: Continue indicates whether to continue matching
+                        other routes after this one
+                      type: boolean
+                    match:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Match is a map of label key-value pairs to match
+                        All labels must match for this route to apply
+                      type: object
+                    notifiers:
+                      description: |-
+                        Notifiers is a list of notifier names to send matching alerts to
+                        Names can be "slack" or webhook names
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - match
+                  - notifiers
+                  type: object
+                type: array
+              slack:
+                description: Slack configuration for alert notifications
+                properties:
+                  channel:
+                    description: Channel is the Slack channel to post to (e.g., "#kspec-alerts")
+                    type: string
+                  enabled:
+                    default: true
+                    description: Enabled enables or disables Slack notifications
+                    type: boolean
+                  events:
+                    description: |-
+                      Events is a list of event types to send to Slack
+                      If empty, all events are sent
+                      Possible values: DriftDetected, ComplianceFailure, PolicyViolation, CircuitBreakerTripped, RemediationPerformed
+                    items:
+                      type: string
+                    type: array
+                  iconEmoji:
+                    default: ':shield:'
+                    description: IconEmoji is the emoji to use as the bot icon (e.g.,
+                      ":shield:")
+                    type: string
+                  username:
+                    default: kspec-bot
+                    description: Username is the bot username to display
+                    type: string
+                  webhookURL:
+                    description: |-
+                      WebhookURL is the Slack incoming webhook URL
+                      This should be stored in a Secret and referenced here
+                      Format: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX
+                    type: string
+                  webhookURLSecretRef:
+                    description: |-
+                      WebhookURLSecretRef references a Secret containing the webhook URL
+                      The secret should have a key 'url' with the webhook URL
+                    properties:
+                      key:
+                        description: |-
+                          Key is the key within the secret data
+                          Defaults to "kubeconfig" for kubeconfig mode, "token" for token/serviceAccount modes
+                        type: string
+                      name:
+                        description: Name is the name of the secret
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace of the secret
+                          If not specified, uses the same namespace as the ClusterTarget
+                        type: string
+                    required:
+                    - name
+                    type: object
+                required:
+                - enabled
+                type: object
+              webhooks:
+                description: Webhooks is a list of generic webhook configurations
+                items:
+                  description: WebhookConfig defines a generic webhook notification
+                  properties:
+                    events:
+                      description: |-
+                        Events is a list of event types to send to this webhook
+                        If empty, all events are sent
+                      items:
+                        type: string
+                      type: array
+                    headers:
+                      additionalProperties:
+                        type: string
+                      description: Headers are custom HTTP headers to send
+                      type: object
+                    headersSecretRef:
+                      description: |-
+                        HeadersSecretRef references a Secret containing headers
+                        Useful for Authorization headers
+                      properties:
+                        key:
+                          description: |-
+                            Key is the key within the secret data
+                            Defaults to "kubeconfig" for kubeconfig mode, "token" for token/serviceAccount modes
+                          type: string
+                        name:
+                          description: Name is the name of the secret
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace of the secret
+                            If not specified, uses the same namespace as the ClusterTarget
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    method:
+                      default: POST
+                      description: 'Method is the HTTP method to use (default: POST)'
+                      enum:
+                      - GET
+                      - POST
+                      - PUT
+                      - PATCH
+                      type: string
+                    name:
+                      description: Name is a unique identifier for this webhook
+                      type: string
+                    retryAttempts:
+                      default: 3
+                      description: 'RetryAttempts is the number of retry attempts
+                        on failure (default: 3)'
+                      maximum: 10
+                      minimum: 0
+                      type: integer
+                    template:
+                      description: |-
+                        Template is a Go template for the request body
+                        If not specified, a default JSON payload is used
+                        Template data includes: .Level, .Title, .Description, .Source, .Timestamp, .Labels, .Metadata
+                      type: string
+                    timeoutSeconds:
+                      default: 10
+                      description: 'TimeoutSeconds is the request timeout in seconds
+                        (default: 10)'
+                      maximum: 60
+                      minimum: 1
+                      type: integer
+                    url:
+                      description: URL is the webhook endpoint
+                      type: string
+                    urlSecretRef:
+                      description: URLSecretRef references a Secret containing the
+                        webhook URL
+                      properties:
+                        key:
+                          description: |-
+                            Key is the key within the secret data
+                            Defaults to "kubeconfig" for kubeconfig mode, "token" for token/serviceAccount modes
+                          type: string
+                        name:
+                          description: Name is the name of the secret
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace of the secret
+                            If not specified, uses the same namespace as the ClusterTarget
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
+            type: object
+          status:
+            description: AlertConfigStatus defines the observed state of AlertConfig
+            properties:
+              alertsFailed:
+                description: AlertsFailed is the number of alerts that failed to send
+                format: int64
+                type: integer
+              alertsSent:
+                description: AlertsSent is the total number of alerts sent
+                format: int64
+                type: integer
+              conditions:
+                description: Conditions represent the latest available observations
+                  of an object's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastAlertTime:
+                description: LastAlertTime is the timestamp of the last sent alert
+                format: date-time
+                type: string
+              notifierStatus:
+                additionalProperties:
+                  description: NotifierStatus represents the status of a specific
+                    notifier
+                  properties:
+                    alertsFailed:
+                      description: AlertsFailed is failed alerts for this notifier
+                      format: int64
+                      type: integer
+                    alertsSent:
+                      description: AlertsSent is alerts sent by this notifier
+                      format: int64
+                      type: integer
+                    lastAlertTime:
+                      description: LastAlertTime is when this notifier last sent an
+                        alert
+                      format: date-time
+                      type: string
+                    lastError:
+                      description: LastError is the last error message (if any)
+                      type: string
+                  type: object
+                description: NotifierStatus contains status for each configured notifier
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
