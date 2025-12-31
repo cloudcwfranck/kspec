@@ -3,6 +3,7 @@ package alerts
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,10 +17,14 @@ type mockNotifier struct {
 	eventFilter []string
 	sendFunc    func(ctx context.Context, alert Alert) error
 	sendCalls   []Alert
+	mu          sync.Mutex // Protect sendCalls for concurrent access
 }
 
 func (m *mockNotifier) Send(ctx context.Context, alert Alert) error {
+	m.mu.Lock()
 	m.sendCalls = append(m.sendCalls, alert)
+	m.mu.Unlock()
+
 	if m.sendFunc != nil {
 		return m.sendFunc(ctx, alert)
 	}
@@ -44,6 +49,13 @@ func (m *mockNotifier) ShouldSend(alert Alert) bool {
 		}
 	}
 	return false
+}
+
+// getSendCallCount returns the number of send calls (thread-safe)
+func (m *mockNotifier) getSendCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.sendCalls)
 }
 
 func TestManager_AddNotifier(t *testing.T) {
@@ -120,15 +132,18 @@ func TestManager_Send(t *testing.T) {
 	}
 
 	// Verify both notifiers received the alert
-	if len(notifier1.sendCalls) != 1 {
-		t.Errorf("Expected 1 send call to notifier1, got %d", len(notifier1.sendCalls))
+	if notifier1.getSendCallCount() != 1 {
+		t.Errorf("Expected 1 send call to notifier1, got %d", notifier1.getSendCallCount())
 	}
-	if len(notifier2.sendCalls) != 1 {
-		t.Errorf("Expected 1 send call to notifier2, got %d", len(notifier2.sendCalls))
+	if notifier2.getSendCallCount() != 1 {
+		t.Errorf("Expected 1 send call to notifier2, got %d", notifier2.getSendCallCount())
 	}
 
 	// Verify timestamp was set
-	if notifier1.sendCalls[0].Timestamp.IsZero() {
+	notifier1.mu.Lock()
+	timestamp := notifier1.sendCalls[0].Timestamp
+	notifier1.mu.Unlock()
+	if timestamp.IsZero() {
 		t.Error("Alert timestamp was not set")
 	}
 }
@@ -162,11 +177,11 @@ func TestManager_Send_WithFilter(t *testing.T) {
 
 	manager.Send(context.Background(), driftAlert)
 
-	if len(notifier1.sendCalls) != 1 {
-		t.Errorf("Expected drift-notifier to receive drift alert, got %d calls", len(notifier1.sendCalls))
+	if notifier1.getSendCallCount() != 1 {
+		t.Errorf("Expected drift-notifier to receive drift alert, got %d calls", notifier1.getSendCallCount())
 	}
-	if len(notifier2.sendCalls) != 1 {
-		t.Errorf("Expected all-notifier to receive drift alert, got %d calls", len(notifier2.sendCalls))
+	if notifier2.getSendCallCount() != 1 {
+		t.Errorf("Expected all-notifier to receive drift alert, got %d calls", notifier2.getSendCallCount())
 	}
 
 	// Send a ComplianceFailure alert
@@ -179,12 +194,12 @@ func TestManager_Send_WithFilter(t *testing.T) {
 	manager.Send(context.Background(), complianceAlert)
 
 	// drift-notifier should not receive this (still at 1 call)
-	if len(notifier1.sendCalls) != 1 {
-		t.Errorf("Expected drift-notifier to filter out compliance alert, got %d calls", len(notifier1.sendCalls))
+	if notifier1.getSendCallCount() != 1 {
+		t.Errorf("Expected drift-notifier to filter out compliance alert, got %d calls", notifier1.getSendCallCount())
 	}
 	// all-notifier should receive it (now at 2 calls)
-	if len(notifier2.sendCalls) != 2 {
-		t.Errorf("Expected all-notifier to receive both alerts, got %d calls", len(notifier2.sendCalls))
+	if notifier2.getSendCallCount() != 2 {
+		t.Errorf("Expected all-notifier to receive both alerts, got %d calls", notifier2.getSendCallCount())
 	}
 }
 
@@ -210,8 +225,8 @@ func TestManager_Send_DisabledNotifier(t *testing.T) {
 	}
 
 	// Disabled notifier should not receive alerts
-	if len(disabledNotifier.sendCalls) != 0 {
-		t.Errorf("Expected disabled notifier to not receive alerts, got %d calls", len(disabledNotifier.sendCalls))
+	if disabledNotifier.getSendCallCount() != 0 {
+		t.Errorf("Expected disabled notifier to not receive alerts, got %d calls", disabledNotifier.getSendCallCount())
 	}
 }
 
@@ -247,8 +262,8 @@ func TestManager_Send_WithError(t *testing.T) {
 	}
 
 	// Success notifier should still have received the alert
-	if len(successNotifier.sendCalls) != 1 {
-		t.Errorf("Expected success notifier to still receive alert, got %d calls", len(successNotifier.sendCalls))
+	if successNotifier.getSendCallCount() != 1 {
+		t.Errorf("Expected success notifier to still receive alert, got %d calls", successNotifier.getSendCallCount())
 	}
 
 	// Check stats
@@ -289,11 +304,11 @@ func TestManager_SendToNotifier(t *testing.T) {
 	}
 
 	// Only notifier-1 should have received it
-	if len(notifier1.sendCalls) != 1 {
-		t.Errorf("Expected notifier-1 to receive alert, got %d calls", len(notifier1.sendCalls))
+	if notifier1.getSendCallCount() != 1 {
+		t.Errorf("Expected notifier-1 to receive alert, got %d calls", notifier1.getSendCallCount())
 	}
-	if len(notifier2.sendCalls) != 0 {
-		t.Errorf("Expected notifier-2 to not receive alert, got %d calls", len(notifier2.sendCalls))
+	if notifier2.getSendCallCount() != 0 {
+		t.Errorf("Expected notifier-2 to not receive alert, got %d calls", notifier2.getSendCallCount())
 	}
 
 	// Test sending to non-existent notifier
