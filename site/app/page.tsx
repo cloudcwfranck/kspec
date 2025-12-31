@@ -161,7 +161,7 @@ spec:
               View documentation
             </Link>
             <Link href="/changelog" className="btn-secondary">
-              See what's new
+              See what&apos;s new
             </Link>
           </div>
         </div>
