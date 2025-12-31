@@ -1,9 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MDXRemote } from 'next-mdx-remote/rsc';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeSlug from 'rehype-slug';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import remarkGfm from 'remark-gfm';
 import { getAllDocs, getDocBySlug, getDocSidebar } from '@/lib/docs';
 import DocSidebar from '@/components/DocSidebar';
@@ -69,11 +66,6 @@ export default function DocPage({ params }: PageProps) {
                 options={{
                   mdxOptions: {
                     remarkPlugins: [remarkGfm],
-                    rehypePlugins: [
-                      rehypeHighlight,
-                      rehypeSlug,
-                      [rehypeAutolinkHeadings, { behavior: 'wrap' }],
-                    ],
                   },
                 }}
               />
