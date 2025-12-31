@@ -31,18 +31,18 @@ function CommitRow({ commit }: { commit: Commit }) {
       href={commit.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-3 px-4 py-3 hover:bg-linear-surface rounded-lg transition-colors group"
+      className="flex items-center gap-3 px-4 py-3 hover:bg-vercel-bg-subtle rounded-lg transition-colors group"
     >
       {/* Hash badge */}
       <div className="flex-shrink-0">
-        <code className="text-xs font-mono text-linear-text-muted bg-linear-surface px-2 py-1 rounded border border-linear-border">
+        <code className="text-xs font-mono text-vercel-text-muted bg-vercel-bg-subtle px-2 py-1 rounded border border-vercel-border">
           {shortHash}
         </code>
       </div>
 
       {/* Commit message */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-linear-text-secondary group-hover:text-linear-text truncate transition-colors">
+        <p className="text-sm text-vercel-text-secondary group-hover:text-vercel-text truncate transition-colors">
           {truncatedMessage}
         </p>
       </div>
@@ -54,7 +54,7 @@ function CommitRow({ commit }: { commit: Commit }) {
             #{commit.pr}
           </span>
         )}
-        <span className="text-xs text-linear-text-muted bg-linear-surface px-2 py-1 rounded border border-linear-border">
+        <span className="text-xs text-vercel-text-muted bg-vercel-bg-subtle px-2 py-1 rounded border border-vercel-border">
           {commit.author}
         </span>
       </div>
@@ -79,21 +79,21 @@ export default function ChangelogBlock({
       <div className="flex items-center gap-4 mb-6">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-accent" />
-          <time className="text-sm text-linear-text-secondary font-medium">{date}</time>
+          <time className="text-sm text-vercel-text-secondary font-medium">{date}</time>
         </div>
-        <span className="text-xs text-linear-text-muted bg-linear-surface px-2 py-1 rounded border border-linear-border font-mono">
+        <span className="text-xs text-vercel-text-muted bg-vercel-bg-subtle px-2 py-1 rounded border border-vercel-border font-mono">
           {version}
         </span>
       </div>
 
       {/* Title */}
-      <h2 className="text-3xl font-bold text-linear-text mb-4 tracking-tight">
+      <h2 className="text-3xl font-bold text-vercel-text mb-4 tracking-tight">
         {title}
       </h2>
 
       {/* Summary */}
       {summary && (
-        <p className="text-lg text-linear-text-secondary mb-8 leading-relaxed">
+        <p className="text-lg text-vercel-text-secondary mb-8 leading-relaxed">
           {summary}
         </p>
       )}
@@ -101,13 +101,13 @@ export default function ChangelogBlock({
       {/* Highlights - What's in this release */}
       {highlights.length > 0 && (
         <div className="mb-8">
-          <h3 className="text-sm font-semibold text-linear-text-muted uppercase mb-4 tracking-wide">
+          <h3 className="text-sm font-semibold text-vercel-text-muted uppercase mb-4 tracking-wide">
             What&apos;s in this release
           </h3>
           <div className="space-y-3">
             {highlights.map((highlight, idx) => (
-              <div key={idx} className="flex gap-3 text-linear-text-secondary leading-relaxed">
-                <span className="text-linear-text-muted mt-1.5">•</span>
+              <div key={idx} className="flex gap-3 text-vercel-text-secondary leading-relaxed">
+                <span className="text-vercel-text-muted mt-1.5">•</span>
                 <span>{highlight}</span>
               </div>
             ))}
@@ -120,7 +120,7 @@ export default function ChangelogBlock({
         <div className="mt-8">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-sm font-medium text-linear-text-muted hover:text-linear-text transition-colors mb-4"
+            className="flex items-center gap-2 text-sm font-medium text-vercel-text-muted hover:text-vercel-text transition-colors mb-4"
           >
             <svg
               className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -134,9 +134,9 @@ export default function ChangelogBlock({
           </button>
 
           {isExpanded && (
-            <div className="bg-linear-surface border border-linear-border rounded-xl overflow-hidden">
+            <div className="bg-white border border-vercel-border rounded-xl overflow-hidden">
               <div className="max-h-[420px] overflow-y-auto">
-                <div className="divide-y divide-linear-border">
+                <div className="divide-y divide-vercel-border">
                   {commits.map((commit, idx) => (
                     <CommitRow key={idx} commit={commit} />
                   ))}
@@ -153,7 +153,7 @@ export default function ChangelogBlock({
           href={githubUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-linear-text-muted hover:text-linear-text-secondary transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-vercel-text-muted hover:text-vercel-text-secondary transition-colors"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path

@@ -8,74 +8,74 @@
   }
 
   body {
-    @apply bg-linear-bg text-linear-text;
+    @apply bg-vercel-bg text-vercel-text;
     font-weight: 400;
-    line-height: 1.45;
+    line-height: 1.5;
   }
 
-  /* Custom scrollbar (Linear style) */
+  /* Custom scrollbar (Vercel style) */
   ::-webkit-scrollbar {
     width: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-linear-bg;
+    @apply bg-vercel-bg-subtle;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-linear-border rounded-full;
+    @apply bg-vercel-border rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-linear-text-muted;
+    @apply bg-vercel-text-muted;
   }
 }
 
 @layer components {
-  /* Button styles (Linear spec - primary is LIGHT, not accent) */
+  /* Button styles (Vercel spec - black primary button) */
   .btn-primary {
-    @apply px-6 py-3 bg-white text-linear-bg rounded-xl font-medium;
-    transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1);
+    @apply px-6 py-3 bg-black text-white rounded-lg font-medium;
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .btn-primary:hover {
-    background-color: #f5f5f5;
+    @apply bg-vercel-text-secondary;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-transparent text-linear-text-secondary rounded-xl font-medium;
-    transition: color 120ms cubic-bezier(0.2, 0, 0, 1);
+    @apply px-6 py-3 bg-transparent text-vercel-text border border-vercel-border rounded-lg font-medium;
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .btn-secondary:hover {
-    @apply text-linear-text;
+    @apply border-vercel-text bg-vercel-bg-subtle;
   }
 
   /* Code block styling */
   .prose pre {
-    @apply bg-linear-bg border border-linear-border text-linear-text-secondary rounded-xl p-4 overflow-x-auto;
+    @apply bg-vercel-bg-subtle border border-vercel-border text-vercel-text-secondary rounded-lg p-4 overflow-x-auto;
     font-size: 14px;
     line-height: 1.6;
   }
 
   .prose code {
-    @apply text-sm text-linear-text-secondary;
+    @apply text-sm text-vercel-text-secondary bg-vercel-bg-subtle px-1 py-0.5 rounded;
   }
 
-  /* Syntax highlighting */
+  /* Syntax highlighting (light mode) */
   .hljs {
-    @apply bg-linear-bg text-linear-text-secondary;
+    @apply bg-vercel-bg-subtle text-vercel-text;
   }
 
   .hljs-comment,
   .hljs-quote {
-    @apply text-gray-500;
+    @apply text-gray-400;
   }
 
   .hljs-keyword,
   .hljs-selector-tag,
   .hljs-subst {
-    @apply text-primary-400;
+    @apply text-purple-600;
   }
 
   .hljs-number,
@@ -83,49 +83,22 @@
   .hljs-variable,
   .hljs-template-variable,
   .hljs-tag .hljs-attr {
-    @apply text-emerald-400;
+    @apply text-blue-600;
   }
 
   .hljs-string,
   .hljs-doctag {
-    @apply text-amber-300;
+    @apply text-green-600;
   }
 
   .hljs-title,
   .hljs-section,
   .hljs-selector-id {
-    @apply text-blue-400;
+    @apply text-blue-700;
   }
 
   .hljs-meta {
-    @apply text-gray-400;
-  }
-
-  /* Linear-style gradients (subtle, minimal) */
-  .gradient-subtle {
-    background: linear-gradient(135deg, #16181D 0%, #0E0F12 100%);
-  }
-
-  .gradient-accent {
-    background: linear-gradient(135deg, #5E6AD2 0%, #6B76DB 100%);
-  }
-
-  /* Animated gradient background */
-  @keyframes gradient {
-    0% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-    100% {
-      background-position: 0% 50%;
-    }
-  }
-
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient 15s ease infinite;
+    @apply text-gray-500;
   }
 }
 

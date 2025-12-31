@@ -8,25 +8,26 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Linear.app official accent color
+        // Vercel brand colors
         accent: {
-          DEFAULT: '#5E6AD2',
-          hover: '#6B76DB',
+          DEFAULT: '#0070F3',         // Vercel blue
+          hover: '#0761D1',           // Darker blue on hover
         },
-        // Linear.app dark mode colors (exact spec)
-        linear: {
-          bg: '#0E0F12',              // App background
-          surface: '#16181D',         // Cards/panels
-          'surface-secondary': '#1C1F26', // Secondary surface
-          text: '#EDEEF0',            // Primary text
-          'text-secondary': '#A8ADB7', // Secondary text
-          'text-muted': '#8A8F98',    // Muted text
-          border: '#262A33',          // Borders
+        // Vercel light mode design system
+        vercel: {
+          bg: '#FFFFFF',              // Pure white background
+          'bg-subtle': '#FAFAFA',     // Off-white background
+          surface: '#FFFFFF',         // Cards/panels (white)
+          text: '#000000',            // Primary text (black)
+          'text-secondary': '#666666', // Secondary text (gray)
+          'text-muted': '#999999',    // Muted text (light gray)
+          border: '#EAEAEA',          // Primary borders
+          'border-light': '#F0F0F0',  // Lighter borders
         },
-        // Semantic colors (Linear spec)
-        success: '#4CB782',
-        warning: '#F2C94C',
-        error: '#EB5757',
+        // Semantic colors
+        success: '#0070F3',           // Blue for success
+        warning: '#F5A623',           // Orange for warnings
+        error: '#E00',                // Red for errors
       },
       fontFamily: {
         sans: [
@@ -48,8 +49,9 @@ module.exports = {
         ],
       },
       borderRadius: {
-        'lg': '10px',
+        'lg': '8px',
         'xl': '12px',
+        '2xl': '16px',
       },
       spacing: {
         // 8px spacing system (Linear spec)
