@@ -1,0 +1,280 @@
+---
+title: Multi-Cluster Setup
+description: Manage policies across multiple Kubernetes clusters
+order: 11
+---
+
+# Multi-Cluster Setup
+
+Learn how to manage policies consistently across development, staging, and production clusters.
+
+## Overview
+
+kspec supports managing policies across multiple clusters from a single management cluster. This allows you to:
+
+- Define policies once, apply everywhere
+- Maintain consistency across environments
+- Centralized compliance reporting
+- Environment-specific policy variations
+
+## Architecture
+
+**Management Cluster**
+- Runs kspec operator
+- Stores ClusterTarget and ClusterSpecification resources
+- Centralizes policy management
+
+**Target Clusters**
+- Development, staging, production
+- Policies applied via kubeconfig
+- Reports sent back to management cluster
+
+## Setup
+
+### 1. Install kspec on Management Cluster
+
+```bash
+# Install on your management cluster
+kubectl config use-context management-cluster
+kubectl apply -k https://github.com/cloudcwfranck/kspec/config/default
+```
+
+### 2. Create ClusterTargets for Remote Clusters
+
+For each remote cluster, create a ClusterTarget:
+
+```yaml
+# Production cluster
+apiVersion: kspec.io/v1alpha1
+kind: ClusterTarget
+metadata:
+  name: production-cluster
+  namespace: kspec-system
+spec:
+  inCluster: false
+  kubeconfig:
+    secretRef:
+      name: production-kubeconfig
+      key: kubeconfig
+  platform: eks
+  version: "1.28.0"
+---
+# Staging cluster
+apiVersion: kspec.io/v1alpha1
+kind: ClusterTarget
+metadata:
+  name: staging-cluster
+  namespace: kspec-system
+spec:
+  inCluster: false
+  kubeconfig:
+    secretRef:
+      name: staging-kubeconfig
+      key: kubeconfig
+  platform: eks
+  version: "1.28.0"
+```
+
+### 3. Store Kubeconfig as Secrets
+
+```bash
+# Create secret for production cluster
+kubectl create secret generic production-kubeconfig \
+  --from-file=kubeconfig=./prod-kubeconfig.yaml \
+  -n kspec-system
+
+# Create secret for staging cluster
+kubectl create secret generic staging-kubeconfig \
+  --from-file=kubeconfig=./staging-kubeconfig.yaml \
+  -n kspec-system
+```
+
+### 4. Create ClusterSpecifications
+
+Define policies for each environment:
+
+```yaml
+# Production - strict enforcement
+apiVersion: kspec.io/v1alpha1
+kind: ClusterSpecification
+metadata:
+  name: production-spec
+  namespace: kspec-system
+spec:
+  targetClusterRef:
+    name: production-cluster
+  enforcementMode: enforce
+  policies:
+    - id: "pod-security-strict"
+      title: "Pod Security - Strict"
+      severity: critical
+      checks:
+        - id: "require-all-security"
+          kyvernoPolicy: |
+            apiVersion: kyverno.io/v1
+            kind: ClusterPolicy
+            metadata:
+              name: require-pod-security
+            spec:
+              validationFailureAction: enforce
+              background: true
+              rules:
+              - name: check-security
+                match:
+                  any:
+                  - resources:
+                      kinds:
+                      - Pod
+                validate:
+                  message: "Pods must define security context"
+                  pattern:
+                    spec:
+                      securityContext:
+                        runAsNonRoot: true
+                      containers:
+                      - securityContext:
+                          allowPrivilegeEscalation: false
+                          capabilities:
+                            drop: ["ALL"]
+---
+# Staging - monitor mode
+apiVersion: kspec.io/v1alpha1
+kind: ClusterSpecification
+metadata:
+  name: staging-spec
+  namespace: kspec-system
+spec:
+  targetClusterRef:
+    name: staging-cluster
+  enforcementMode: monitor
+  policies:
+    - id: "pod-security-baseline"
+      title: "Pod Security - Baseline"
+      severity: high
+      checks:
+        - id: "require-non-root"
+          kyvernoPolicy: |
+            apiVersion: kyverno.io/v1
+            kind: ClusterPolicy
+            metadata:
+              name: require-non-root
+            spec:
+              validationFailureAction: audit
+              # ... policy definition
+```
+
+## Best Practices
+
+### Environment-Specific Policies
+
+Use different enforcement modes per environment:
+
+- **Development:** `monitor` mode - log violations, don't block
+- **Staging:** `monitor` or `enforce` - test policies before production
+- **Production:** `enforce` mode - strict enforcement
+
+### Shared Base Policies
+
+Use policy templates for consistency:
+
+```yaml
+apiVersion: kspec.io/v1alpha1
+kind: ClusterSpecification
+metadata:
+  name: production-spec
+spec:
+  targetClusterRef:
+    name: production-cluster
+  enforcementMode: enforce
+  policies:
+    - id: "security-baseline"
+      policyTemplate:
+        name: "security-baseline"
+        parameters:
+          enforcementLevel: "strict"
+```
+
+### Gradual Rollout
+
+Roll out policy changes gradually:
+
+1. Apply to development → monitor for issues
+2. Apply to staging → validate in pre-prod
+3. Apply to production → full enforcement
+
+### Centralized Monitoring
+
+View compliance across all clusters:
+
+```bash
+# Get all compliance reports
+kubectl get compliancereport -n kspec-system
+
+# Check specific cluster
+kubectl get compliancereport production-spec -o yaml
+```
+
+## RBAC for Multi-Cluster
+
+Grant kspec operator permissions on target clusters:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kspec-remote-access
+rules:
+  - apiGroups: ["kyverno.io"]
+    resources: ["clusterpolicies", "policies"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["pods", "namespaces"]
+    verbs: ["get", "list", "watch"]
+```
+
+Bind this role using the service account from the kubeconfig.
+
+## Troubleshooting
+
+### Connection Issues
+
+Check kubeconfig secret:
+
+```bash
+kubectl get secret production-kubeconfig -n kspec-system -o yaml
+```
+
+Verify connectivity:
+
+```bash
+# Test from kspec operator pod
+kubectl exec -it deployment/kspec-operator -n kspec-system -- \
+  kubectl --kubeconfig=/path/to/kubeconfig get nodes
+```
+
+### Policy Not Applied
+
+Check ClusterTarget status:
+
+```bash
+kubectl get clustertarget production-cluster -n kspec-system -o yaml
+```
+
+Look for error messages in status field.
+
+### Permission Denied
+
+Ensure kubeconfig has sufficient permissions:
+
+```bash
+# Test permissions
+kubectl auth can-i create clusterpolicies \
+  --kubeconfig=./prod-kubeconfig.yaml \
+  --all-namespaces
+```
+
+## Next Steps
+
+- [Drift Detection](/docs/guides/drift-detection) - Monitor policy compliance
+- [Writing Policies](/docs/guides/writing-policies) - Create effective policies
+- [API Reference](/docs/api-reference) - Complete CRD documentation

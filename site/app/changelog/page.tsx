@@ -38,7 +38,7 @@ async function getReleases(): Promise<GitHubRelease[]> {
       `https://api.github.com/repos/${owner}/${repo}/releases`,
       {
         headers,
-        next: { revalidate: 300 }, // ISR: revalidate every 5 minutes
+        next: { revalidate: 300 },
       }
     );
 
@@ -48,7 +48,6 @@ async function getReleases(): Promise<GitHubRelease[]> {
     }
 
     const releases: GitHubRelease[] = await response.json();
-    // Filter out drafts and prereleases
     return releases.filter(r => !r.draft && !r.prerelease);
   } catch (error) {
     console.error('Failed to fetch releases:', error);
@@ -60,20 +59,62 @@ function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
   });
 }
 
-function parseReleaseBody(body: string): string {
-  // Convert GitHub-flavored markdown links and basic formatting
-  return body
-    .replace(/\*\*/g, '') // Remove bold markers for simplicity
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
-      return `<pre class="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto my-4"><code>${code.trim()}</code></pre>`;
-    })
-    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 text-primary-700 px-2 py-1 rounded text-sm">$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-primary-600 hover:text-primary-700 underline" target="_blank" rel="noopener noreferrer">$1</a>');
+function parseReleaseBody(body: string): React.ReactNode[] {
+  const lines = body.split('\n');
+  const elements: React.ReactNode[] = [];
+
+  lines.forEach((line, index) => {
+    // Skip empty lines
+    if (!line.trim()) {
+      elements.push(<br key={`br-${index}`} />);
+      return;
+    }
+
+    // Headers
+    if (line.startsWith('## ')) {
+      elements.push(
+        <h3 key={index} className="text-lg font-semibold mt-6 mb-3 text-gray-900">
+          {line.replace('## ', '')}
+        </h3>
+      );
+    } else if (line.startsWith('### ')) {
+      elements.push(
+        <h4 key={index} className="text-base font-semibold mt-4 mb-2 text-gray-900">
+          {line.replace('### ', '')}
+        </h4>
+      );
+    } else if (line.startsWith('- ')) {
+      // Bullet points
+      const content = line.replace('- ', '');
+      elements.push(
+        <div key={index} className="flex gap-2 mb-1">
+          <span className="text-gray-400 mt-1">•</span>
+          <span className="text-gray-700">{content}</span>
+        </div>
+      );
+    } else if (line.startsWith('**') && line.endsWith('**')) {
+      // Bold standalone lines
+      elements.push(
+        <p key={index} className="font-medium text-gray-900 mt-3 mb-2">
+          {line.replace(/\*\*/g, '')}
+        </p>
+      );
+    } else {
+      // Regular paragraphs
+      elements.push(
+        <p key={index} className="text-gray-700 mb-2">
+          {line}
+        </p>
+      );
+    }
+  });
+
+  return elements;
 }
 
 export default async function ChangelogPage() {
@@ -81,83 +122,78 @@ export default async function ChangelogPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="bg-gradient-to-b from-gray-50 to-white border-b border-gray-200 py-16">
-        <div className="max-w-4xl mx-auto px-6">
-          <h1 className="text-5xl font-bold mb-4">Changelog</h1>
-          <p className="text-xl text-gray-600">
-            Latest releases and updates for kspec. Automatically updated from GitHub Releases.
+      {/* Header - Linear style */}
+      <div className="border-b border-gray-200">
+        <div className="max-w-3xl mx-auto px-6 py-16">
+          <h1 className="text-4xl font-bold mb-2 text-gray-900">Changelog</h1>
+          <p className="text-base text-gray-600">
+            New features, improvements, and fixes
           </p>
         </div>
       </div>
 
-      {/* Releases */}
-      <div className="max-w-4xl mx-auto px-6 py-12">
+      {/* Releases - Linear style cards */}
+      <div className="max-w-3xl mx-auto px-6 py-8">
         {releases.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No releases found. Check back later.</p>
+          <div className="text-center py-20">
+            <p className="text-gray-500 text-sm">No releases yet</p>
           </div>
         ) : (
-          <div className="space-y-12">
-            {releases.map((release) => (
-              <article key={release.id} className="border-b border-gray-200 pb-12 last:border-0">
-                {/* Release header */}
-                <div className="flex items-baseline gap-4 mb-4">
-                  <h2 className="text-3xl font-bold">
-                    <a
-                      href={release.html_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-900 hover:text-primary-600 transition-colors"
-                    >
-                      {release.name || release.tag_name}
-                    </a>
-                  </h2>
-                  <span className="text-sm text-gray-500 font-medium">
-                    {release.tag_name}
-                  </span>
-                </div>
+          <div className="space-y-8">
+            {releases.map((release, idx) => (
+              <article
+                key={release.id}
+                className="bg-white border border-gray-200 rounded-xl p-8 hover:border-gray-300 transition-colors"
+              >
+                {/* Release header - minimal */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <div className="flex items-baseline gap-3">
+                      <h2 className="text-2xl font-bold text-gray-900">
+                        {release.tag_name}
+                      </h2>
+                      <time className="text-sm text-gray-500">
+                        {formatDate(release.published_at)}
+                      </time>
+                    </div>
+                    {release.name && release.name !== release.tag_name && (
+                      <p className="text-sm text-gray-600 mt-1">{release.name}</p>
+                    )}
+                  </div>
 
-                <div className="text-sm text-gray-500 mb-6">
-                  Released on {formatDate(release.published_at)}
-                </div>
-
-                {/* Release body */}
-                <div
-                  className="prose prose-gray max-w-none"
-                  dangerouslySetInnerHTML={{ __html: parseReleaseBody(release.body) }}
-                />
-
-                {/* View on GitHub link */}
-                <div className="mt-6">
                   <a
                     href={release.html_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary-600 hover:text-primary-700 text-sm font-medium inline-flex items-center gap-1"
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="View on GitHub"
                   >
-                    View on GitHub
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
                     </svg>
                   </a>
+                </div>
+
+                {/* Release body - clean typography */}
+                <div className="prose-sm">
+                  {parseReleaseBody(release.body)}
                 </div>
               </article>
             ))}
           </div>
         )}
 
-        {/* Footer note */}
-        <div className="mt-12 text-center text-sm text-gray-500">
-          <p>This page automatically updates every 5 minutes from GitHub Releases.</p>
-          <p className="mt-2">
+        {/* Footer note - subtle */}
+        <div className="mt-16 pt-8 border-t border-gray-200 text-center">
+          <p className="text-xs text-gray-500">
+            Updates automatically from{' '}
             <a
               href="https://github.com/cloudcwfranck/kspec/releases"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-600 hover:text-primary-700"
+              className="text-gray-700 hover:text-gray-900"
             >
-              View all releases on GitHub →
+              GitHub Releases
             </a>
           </p>
         </div>

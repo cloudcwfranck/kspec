@@ -1,0 +1,344 @@
+---
+title: Drift Detection
+description: Monitor and remediate policy drift in your clusters
+order: 12
+---
+
+# Drift Detection
+
+Learn how to detect and remediate configuration drift between your declared policies and actual cluster state.
+
+## What is Drift?
+
+Policy drift occurs when the actual policies deployed in your cluster differ from the desired state defined in ClusterSpecification resources.
+
+### Types of Drift
+
+**Missing Policies**
+Expected policy not found in cluster
+
+**Modified Policies**
+Policy exists but has been changed (enforcement mode, rules, etc.)
+
+**Extra Policies**
+Unexpected policies found in cluster (not in specification)
+
+## How It Works
+
+kspec continuously monitors your clusters for drift:
+
+1. **Fetch Desired State:** Read ClusterSpecification resources
+2. **Fetch Actual State:** Query cluster for deployed Kyverno policies
+3. **Compare:** Detect differences
+4. **Report:** Generate DriftReport with findings
+5. **Remediate:** (Optional) Auto-fix drift
+
+## Enabling Drift Detection
+
+Drift detection runs automatically when you create a ClusterSpecification:
+
+```yaml
+apiVersion: kspec.io/v1alpha1
+kind: ClusterSpecification
+metadata:
+  name: production-spec
+  namespace: kspec-system
+spec:
+  targetClusterRef:
+    name: production-cluster
+  enforcementMode: enforce
+  driftDetection:
+    enabled: true
+    interval: "5m"  # Check every 5 minutes
+    autoRemediate: false  # Don't auto-fix (default)
+  policies:
+    - id: "pod-security"
+      # ... policy definition
+```
+
+## Viewing Drift Reports
+
+### Get All Drift Reports
+
+```bash
+kubectl get driftreport -n kspec-system
+```
+
+### View Detailed Report
+
+```bash
+kubectl get driftreport production-spec-drift -n kspec-system -o yaml
+```
+
+Example output:
+
+```yaml
+apiVersion: kspec.io/v1alpha1
+kind: DriftReport
+metadata:
+  name: production-spec-drift
+  namespace: kspec-system
+spec:
+  clusterRef:
+    name: production-cluster
+  specRef:
+    name: production-spec
+  timestamp: "2025-12-30T15:30:00Z"
+status:
+  driftDetected: true
+  driftEvents:
+    - type: "modified"
+      policyID: "pod-security"
+      resourceName: "require-run-as-non-root"
+      message: "Policy validationFailureAction changed from 'enforce' to 'audit'"
+      detectedAt: "2025-12-30T15:30:00Z"
+    - type: "missing"
+      policyID: "network-policies"
+      resourceName: "require-network-policy"
+      message: "Expected policy not found in cluster"
+      detectedAt: "2025-12-30T15:30:00Z"
+```
+
+## Manual Remediation
+
+When drift is detected, you can manually remediate:
+
+### Option 1: Re-apply ClusterSpecification
+
+```bash
+kubectl apply -f clusterspec.yaml
+```
+
+The kspec controller will reconcile and fix drift.
+
+### Option 2: Force Sync
+
+Trigger immediate reconciliation:
+
+```bash
+kubectl annotate clusterspecification production-spec \
+  kspec.io/force-sync="$(date +%s)" \
+  -n kspec-system
+```
+
+### Option 3: Delete Unexpected Resources
+
+For extra policies (not in spec):
+
+```bash
+# List all policies in cluster
+kubectl get clusterpolicy
+
+# Delete unwanted policy
+kubectl delete clusterpolicy unwanted-policy
+```
+
+## Automatic Remediation
+
+Enable auto-remediation to automatically fix drift:
+
+```yaml
+apiVersion: kspec.io/v1alpha1
+kind: ClusterSpecification
+metadata:
+  name: production-spec
+spec:
+  driftDetection:
+    enabled: true
+    autoRemediate: true
+    remediationStrategy:
+      onMissing: create  # Create missing policies
+      onModified: update  # Update modified policies
+      onExtra: ignore  # Don't delete extra policies (safe default)
+```
+
+### Remediation Strategies
+
+**onMissing**
+- `create` - Create missing policies
+- `report` - Only report, don't fix
+
+**onModified**
+- `update` - Update policies to match spec
+- `report` - Only report, don't fix
+
+**onExtra**
+- `delete` - Remove unexpected policies (dangerous!)
+- `ignore` - Leave them alone (recommended)
+- `report` - Only report
+
+## Monitoring Drift
+
+### Prometheus Metrics
+
+kspec exposes drift metrics:
+
+```promql
+# Total drift events
+kspec_drift_events_total
+
+# Drift events by type
+kspec_drift_events_total{type="missing"}
+kspec_drift_events_total{type="modified"}
+kspec_drift_events_total{type="extra"}
+
+# Current clusters with drift
+kspec_clusters_with_drift
+```
+
+### Alerting
+
+Set up alerts for drift detection:
+
+```yaml
+# Prometheus Alert
+groups:
+  - name: kspec_drift
+    rules:
+      - alert: PolicyDriftDetected
+        expr: kspec_drift_events_total > 0
+        for: 5m
+        annotations:
+          summary: "Policy drift detected in cluster"
+          description: "{{ $labels.cluster }} has policy drift"
+```
+
+## Best Practices
+
+### Start with Monitoring
+
+Begin with `autoRemediate: false` to understand drift patterns:
+
+```yaml
+driftDetection:
+  enabled: true
+  autoRemediate: false
+```
+
+Review drift reports for a week before enabling auto-remediation.
+
+### Use Safe Remediation
+
+When enabling auto-remediation, use safe defaults:
+
+```yaml
+remediationStrategy:
+  onMissing: create
+  onModified: update
+  onExtra: ignore  # Never auto-delete
+```
+
+### Schedule Drift Checks
+
+Run drift detection during off-hours:
+
+```yaml
+driftDetection:
+  enabled: true
+  schedule: "0 2 * * *"  # 2 AM daily (cron format)
+  timezone: "America/New_York"
+```
+
+### Exclude Namespaces
+
+Exclude certain namespaces from drift detection:
+
+```yaml
+driftDetection:
+  enabled: true
+  excludeNamespaces:
+    - kube-system
+    - kube-public
+    - development
+```
+
+## Common Drift Scenarios
+
+### Scenario 1: Manual Policy Changes
+
+Someone manually edited a policy in the cluster.
+
+**Detection:**
+```
+type: "modified"
+message: "Policy validationFailureAction changed"
+```
+
+**Remediation:**
+Re-apply ClusterSpecification or enable `autoRemediate`.
+
+### Scenario 2: Policy Deleted
+
+A policy was accidentally deleted.
+
+**Detection:**
+```
+type: "missing"
+message: "Expected policy not found"
+```
+
+**Remediation:**
+kspec will recreate it on next reconciliation.
+
+### Scenario 3: External Tool Added Policy
+
+Another tool (CI/CD, GitOps) created a policy.
+
+**Detection:**
+```
+type: "extra"
+message: "Unexpected policy found"
+```
+
+**Remediation:**
+- Add to ClusterSpecification if needed
+- Or set `onExtra: ignore`
+
+## Troubleshooting
+
+### Drift Not Detected
+
+Check drift detection is enabled:
+
+```bash
+kubectl get clusterspecification production-spec \
+  -n kspec-system \
+  -o jsonpath='{.spec.driftDetection.enabled}'
+```
+
+Check controller logs:
+
+```bash
+kubectl logs -n kspec-system \
+  -l control-plane=controller-manager \
+  --tail=100 | grep drift
+```
+
+### False Positives
+
+kspec may report drift for expected changes. Use exemptions:
+
+```yaml
+driftDetection:
+  enabled: true
+  exemptions:
+    - policyID: "temporary-policy"
+      reason: "Testing new policy"
+      expiresAt: "2026-01-01T00:00:00Z"
+```
+
+### Performance Impact
+
+Drift detection queries your clusters. Adjust interval for large clusters:
+
+```yaml
+driftDetection:
+  enabled: true
+  interval: "15m"  # Less frequent checks
+```
+
+## Next Steps
+
+- [Multi-Cluster Setup](/docs/guides/multi-cluster) - Manage multiple clusters
+- [Writing Policies](/docs/guides/writing-policies) - Create effective policies
+- [API Reference](/docs/api-reference) - DriftReport CRD documentation
