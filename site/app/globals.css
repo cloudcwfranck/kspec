@@ -32,23 +32,23 @@
 }
 
 @layer components {
-  /* Button styles (Linear spec) */
+  /* Button styles (Linear spec - primary is LIGHT, not accent) */
   .btn-primary {
-    @apply px-6 py-3 bg-accent text-white rounded-xl font-medium;
+    @apply px-6 py-3 bg-white text-linear-bg rounded-xl font-medium;
     transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1);
   }
 
   .btn-primary:hover {
-    @apply bg-accent-hover;
+    background-color: #f5f5f5;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-transparent text-linear-text border border-linear-border rounded-xl font-medium;
-    transition: all 120ms cubic-bezier(0.2, 0, 0, 1);
+    @apply px-6 py-3 bg-transparent text-linear-text-secondary rounded-xl font-medium;
+    transition: color 120ms cubic-bezier(0.2, 0, 0, 1);
   }
 
   .btn-secondary:hover {
-    @apply bg-linear-surface border-linear-text-muted;
+    @apply text-linear-text;
   }
 
   /* Code block styling */
