@@ -67,9 +67,19 @@ echo ""
 info "Checking Kyverno pods..."
 kubectl get pods -n kyverno
 
-# Count only pods from deployments (ignore CronJob pods that may be in ImagePullBackOff)
-DEPLOYMENT_READY=$(kubectl get pods -n kyverno -l 'app.kubernetes.io/component in (admission-controller,background-controller,cleanup-controller,reports-controller)' -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -o "True" | wc -l)
-DEPLOYMENT_TOTAL=$(kubectl get pods -n kyverno -l 'app.kubernetes.io/component in (admission-controller,background-controller,cleanup-controller,reports-controller)' --no-headers | wc -l)
+# Count only pods from the main deployments (by name prefix)
+# Exclude CronJob pods which may be in ImagePullBackOff
+DEPLOYMENT_PODS=$(kubectl get pods -n kyverno --no-headers | grep -E "kyverno-(admission|background|cleanup|reports)-controller-" | awk '{print $1}')
+DEPLOYMENT_READY=0
+DEPLOYMENT_TOTAL=0
+
+for pod in $DEPLOYMENT_PODS; do
+    DEPLOYMENT_TOTAL=$((DEPLOYMENT_TOTAL + 1))
+    POD_STATUS=$(kubectl get pod -n kyverno "$pod" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+    if [ "$POD_STATUS" = "True" ]; then
+        DEPLOYMENT_READY=$((DEPLOYMENT_READY + 1))
+    fi
+done
 
 if [ "$DEPLOYMENT_READY" -eq "$DEPLOYMENT_TOTAL" ] && [ "$DEPLOYMENT_TOTAL" -gt "0" ]; then
     pass "All Kyverno deployment pods are ready ($DEPLOYMENT_READY/$DEPLOYMENT_TOTAL)"
@@ -77,14 +87,14 @@ else
     fail "Not all deployment pods are ready ($DEPLOYMENT_READY/$DEPLOYMENT_TOTAL)"
 fi
 
-# Check if there are any CronJob pods with issues (info only, not a failure)
-CRONJOB_PODS=$(kubectl get pods -n kyverno -l 'batch.kubernetes.io/job-name' --no-headers 2>/dev/null | wc -l)
+# Check if there are any CronJob cleanup pods (info only, not a failure)
+CRONJOB_PODS=$(kubectl get pods -n kyverno --no-headers 2>/dev/null | grep -E "kyverno-cleanup-.*-[0-9]+-" | wc -l || echo "0")
 if [ "$CRONJOB_PODS" -gt "0" ]; then
-    CRONJOB_READY=$(kubectl get pods -n kyverno -l 'batch.kubernetes.io/job-name' -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null | grep -o "True" | wc -l || echo "0")
+    CRONJOB_READY=$(kubectl get pods -n kyverno --no-headers 2>/dev/null | grep -E "kyverno-cleanup-.*-[0-9]+-" | grep "Running" | wc -l || echo "0")
     if [ "$CRONJOB_READY" -eq "$CRONJOB_PODS" ]; then
-        pass "CronJob pods are ready ($CRONJOB_READY/$CRONJOB_PODS)"
+        pass "CronJob cleanup pods are ready ($CRONJOB_READY/$CRONJOB_PODS)"
     else
-        warn "Some CronJob pods are not ready ($CRONJOB_READY/$CRONJOB_PODS) - this is normal for periodic cleanup jobs"
+        warn "Some CronJob cleanup pods are not ready ($CRONJOB_READY/$CRONJOB_PODS) - this is normal for periodic jobs"
     fi
 fi
 
