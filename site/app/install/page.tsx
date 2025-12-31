@@ -61,7 +61,7 @@ export default function InstallPage() {
             <div>
               <h3 className="text-xl font-semibold mb-3 text-gray-900">Install cert-manager</h3>
               <div className="bg-gray-900 border border-gray-200 rounded-xl p-4 overflow-x-auto">
-                <pre className="text-gray-900-secondary text-sm font-mono">
+                <pre className="text-gray-100 text-sm font-mono">
 {`kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
 
 # Wait for cert-manager to be ready
@@ -79,7 +79,7 @@ kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager -
                 </p>
               </div>
               <div className="bg-gray-900 border border-gray-200 rounded-xl p-4 overflow-x-auto">
-                <pre className="text-gray-900-secondary text-sm font-mono">
+                <pre className="text-gray-100 text-sm font-mono">
 {`helm repo add kyverno https://kyverno.github.io/kyverno/
 helm repo update
 
@@ -103,7 +103,7 @@ helm install kyverno kyverno/kyverno \\
             <div>
               <h3 className="text-xl font-semibold mb-3 text-gray-900">Option A: Using kubectl</h3>
               <div className="bg-gray-900 border border-gray-200 rounded-xl p-4 overflow-x-auto">
-                <pre className="text-gray-900-secondary text-sm font-mono">
+                <pre className="text-gray-100 text-sm font-mono">
 {`# Install CRDs
 kubectl apply -f https://raw.githubusercontent.com/cloudcwfranck/kspec/main/config/crd/bases/kspec.io_clusterspecifications.yaml
 kubectl apply -f https://raw.githubusercontent.com/cloudcwfranck/kspec/main/config/crd/bases/kspec.io_clustertargets.yaml
@@ -123,7 +123,7 @@ kubectl get pods -n kspec-system -l control-plane=controller-manager`}
             <div>
               <h3 className="text-xl font-semibold mb-3 text-gray-900">Option B: Using kustomize</h3>
               <div className="bg-gray-900 border border-gray-200 rounded-xl p-4 overflow-x-auto">
-                <pre className="text-gray-900-secondary text-sm font-mono">
+                <pre className="text-gray-100 text-sm font-mono">
 {`# Clone the repository
 git clone https://github.com/cloudcwfranck/kspec.git
 cd kspec
@@ -142,7 +142,7 @@ kubectl get deployment -n kspec-system kspec-operator-controller-manager`}
         {/* Step 3: Create first spec */}
         <section className="mb-16">
           <h2 className="text-3xl font-bold mb-6 text-gray-900">Step 3: Create Your First ClusterSpecification</h2>
-          <p className="text-gray-900-secondary mb-6">
+          <p className="text-gray-100 mb-6">
             Create a ClusterTarget to reference your cluster, then define a ClusterSpecification with policies.
           </p>
 
@@ -151,7 +151,7 @@ kubectl get deployment -n kspec-system kspec-operator-controller-manager`}
             <div>
               <h3 className="text-lg font-semibold mb-3 text-gray-900">Create ClusterTarget</h3>
               <div className="bg-gray-900 border border-gray-200 rounded-xl p-4 overflow-x-auto">
-                <pre className="text-gray-900-secondary text-sm font-mono">
+                <pre className="text-gray-100 text-sm font-mono">
 {`cat <<EOF | kubectl apply -f -
 apiVersion: kspec.io/v1alpha1
 kind: ClusterTarget
@@ -171,7 +171,7 @@ EOF`}
             <div>
               <h3 className="text-lg font-semibold mb-3 text-gray-900">Create ClusterSpecification</h3>
               <div className="bg-gray-900 border border-gray-200 rounded-xl p-4 overflow-x-auto">
-                <pre className="text-gray-900-secondary text-sm font-mono">
+                <pre className="text-gray-100 text-sm font-mono">
 {`cat <<EOF | kubectl apply -f -
 apiVersion: kspec.io/v1alpha1
 kind: ClusterSpecification
@@ -222,7 +222,7 @@ EOF`}
         <section className="mb-16">
           <h2 className="text-3xl font-bold mb-6 text-gray-900">Step 4: Verify Installation</h2>
           <div className="bg-gray-900 border border-gray-200 rounded-xl p-4 overflow-x-auto">
-            <pre className="text-gray-900-secondary text-sm font-mono">
+            <pre className="text-gray-100 text-sm font-mono">
 {`# Check operator logs
 kubectl logs -n kspec-system -l control-plane=controller-manager --tail=20
 
@@ -249,10 +249,10 @@ kubectl patch clusterspecification production-spec -n kspec-system \\
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <Link href="/docs/getting-started" className="font-medium text-primary-600 hover:text-primary-600-hover">
+                <Link href="/docs/getting-started" className="font-medium text-primary-600 hover:text-primary-700">
                   Getting Started Guide →
                 </Link>
-                <p className="text-sm text-gray-900-secondary mt-1">Learn the basics of kspec</p>
+                <p className="text-sm text-gray-100 mt-1">Learn the basics of kspec</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
@@ -260,10 +260,10 @@ kubectl patch clusterspecification production-spec -n kspec-system \\
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <Link href="/docs/guides" className="font-medium text-primary-600 hover:text-primary-600-hover">
+                <Link href="/docs/guides" className="font-medium text-primary-600 hover:text-primary-700">
                   Policy Guide →
                 </Link>
-                <p className="text-sm text-gray-900-secondary mt-1">Write effective security policies</p>
+                <p className="text-sm text-gray-100 mt-1">Write effective security policies</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
@@ -275,25 +275,25 @@ kubectl patch clusterspecification production-spec -n kspec-system \\
                   href="https://github.com/cloudcwfranck/kspec/tree/main/examples"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-primary-600 hover:text-primary-600-hover"
+                  className="font-medium text-primary-600 hover:text-primary-700"
                 >
                   Example Policies →
                 </a>
-                <p className="text-sm text-gray-900-secondary mt-1">Browse pre-built policy examples</p>
+                <p className="text-sm text-gray-100 mt-1">Browse pre-built policy examples</p>
               </div>
             </li>
           </ul>
         </section>
 
         {/* Support */}
-        <div className="mt-12 text-center text-sm text-gray-900-muted">
+        <div className="mt-12 text-center text-sm text-gray-600">
           <p>
             Need help?{' '}
             <a
               href="https://github.com/cloudcwfranck/kspec/issues"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-600 hover:text-primary-600-hover"
+              className="text-primary-600 hover:text-primary-700"
             >
               Open an issue on GitHub
             </a>
