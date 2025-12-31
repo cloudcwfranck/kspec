@@ -8,26 +8,31 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Vercel brand colors
-        accent: {
-          DEFAULT: '#0070F3',         // Vercel blue
-          hover: '#0761D1',           // Darker blue on hover
+        // Linear-inspired palette
+        primary: {
+          50: '#f0f4ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          300: '#a5b4fc',
+          400: '#818cf8',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca',
+          800: '#3730a3',
+          900: '#312e81',
         },
-        // Vercel light mode design system
-        vercel: {
-          bg: '#FFFFFF',              // Pure white background
-          'bg-subtle': '#FAFAFA',     // Off-white background
-          surface: '#FFFFFF',         // Cards/panels (white)
-          text: '#000000',            // Primary text (black)
-          'text-secondary': '#666666', // Secondary text (gray)
-          'text-muted': '#999999',    // Muted text (light gray)
-          border: '#EAEAEA',          // Primary borders
-          'border-light': '#F0F0F0',  // Lighter borders
+        gray: {
+          50: '#fafafa',
+          100: '#f4f4f5',
+          200: '#e4e4e7',
+          300: '#d4d4d8',
+          400: '#a1a1aa',
+          500: '#71717a',
+          600: '#52525b',
+          700: '#3f3f46',
+          800: '#27272a',
+          900: '#18181b',
         },
-        // Semantic colors
-        success: '#0070F3',           // Blue for success
-        warning: '#F5A623',           // Orange for warnings
-        error: '#E00',                // Red for errors
       },
       fontFamily: {
         sans: [
@@ -48,31 +53,34 @@ module.exports = {
           'monospace',
         ],
       },
-      borderRadius: {
-        'lg': '8px',
-        'xl': '12px',
-        '2xl': '16px',
-      },
-      spacing: {
-        // 8px spacing system (Linear spec)
-        '1': '4px',
-        '2': '8px',
-        '3': '12px',
-        '4': '16px',
-        '6': '24px',
-        '8': '32px',
-        '12': '48px',
-      },
-      transitionDuration: {
-        fast: '120ms',
-        normal: '180ms',
-        slow: '220ms',
-      },
-      transitionTimingFunction: {
-        'linear-ease': 'cubic-bezier(0.2, 0, 0, 1)',
-      },
-      lineHeight: {
-        'tight': '1.45',
+      typography: {
+        DEFAULT: {
+          css: {
+            maxWidth: 'none',
+            color: '#18181b',
+            a: {
+              color: '#4f46e5',
+              '&:hover': {
+                color: '#4338ca',
+              },
+              textDecoration: 'none',
+              fontWeight: '500',
+            },
+            code: {
+              color: '#4338ca',
+              backgroundColor: '#f4f4f5',
+              padding: '0.2em 0.4em',
+              borderRadius: '0.25rem',
+              fontWeight: '500',
+            },
+            'code::before': {
+              content: '""',
+            },
+            'code::after': {
+              content: '""',
+            },
+          },
+        },
       },
     },
   },
