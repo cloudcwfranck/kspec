@@ -41,8 +41,8 @@ const (
 // AlertConfigReconciler reconciles an AlertConfig object
 type AlertConfigReconciler struct {
 	client.Client
-	Scheme        *runtime.Scheme
-	AlertManager  *alerts.Manager
+	Scheme       *runtime.Scheme
+	AlertManager *alerts.Manager
 }
 
 // +kubebuilder:rbac:groups=kspec.io,resources=alertconfigs,verbs=get;list;watch;create;update;patch;delete

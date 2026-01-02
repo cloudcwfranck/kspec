@@ -180,8 +180,8 @@ func TestSlackNotifier_EventFilter(t *testing.T) {
 	notifier.EventFilter = []string{"DriftDetected", "ComplianceFailure"}
 
 	tests := []struct {
-		eventType    string
-		shouldSend   bool
+		eventType  string
+		shouldSend bool
 	}{
 		{"DriftDetected", true},
 		{"ComplianceFailure", true},

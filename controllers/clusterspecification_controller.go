@@ -543,10 +543,10 @@ func (r *ClusterSpecReconciler) sendComplianceAlert(ctx context.Context, cluster
 		Source:      fmt.Sprintf("ClusterSpec/%s", clusterSpec.Name),
 		EventType:   "ComplianceFailure",
 		Labels: map[string]string{
-			"cluster":      clusterInfo.Name,
-			"cluster_uid":  clusterInfo.UID,
-			"spec":         clusterSpec.Name,
-			"platform":     clusterInfo.Platform,
+			"cluster":     clusterInfo.Name,
+			"cluster_uid": clusterInfo.UID,
+			"spec":        clusterSpec.Name,
+			"platform":    clusterInfo.Platform,
 		},
 		Metadata: map[string]interface{}{
 			"score":        score,

@@ -267,9 +267,9 @@ func (cb *CircuitBreaker) sendTripAlert(errorRate float64) {
 			"component": "webhook",
 		},
 		Metadata: map[string]interface{}{
-			"error_rate":      errorRate,
-			"total_requests":  cb.totalRequests,
-			"error_requests":  cb.errorRequests,
+			"error_rate":       errorRate,
+			"total_requests":   cb.totalRequests,
+			"error_requests":   cb.errorRequests,
 			"success_requests": cb.successRequests,
 		},
 	}
