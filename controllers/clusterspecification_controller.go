@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
+	"github.com/cloudcwfranck/kspec/pkg/alerts"
 	"github.com/cloudcwfranck/kspec/pkg/audit"
 	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
 	"github.com/cloudcwfranck/kspec/pkg/drift"
@@ -62,6 +63,7 @@ type ClusterSpecReconciler struct {
 	Scheme        *runtime.Scheme
 	LocalConfig   *rest.Config
 	ClientFactory *clientpkg.ClusterClientFactory
+	AlertManager  *alerts.Manager
 }
 
 // +kubebuilder:rbac:groups=kspec.io,resources=clusterspecifications,verbs=get;list;watch;create;update;patch;delete
@@ -185,6 +187,13 @@ func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Don't fail reconciliation if report creation fails
 	}
 
+	// Send compliance alert if score is below threshold (default: 80%)
+	complianceScore := calculatePassRate(scanResult.Summary)
+	complianceThreshold := 80
+	if complianceScore < complianceThreshold {
+		r.sendComplianceAlert(ctx, &clusterSpec, clusterInfo, scanResult, complianceScore)
+	}
+
 	// Step 3: Detect drift using existing pkg/drift
 	log.Info("Detecting drift")
 	driftReport, err := r.detectDrift(ctx, &clusterSpec, kubeClient, dynamicClient)
@@ -224,12 +233,18 @@ func (r *ClusterSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				auditLog.LogReportGeneration("DriftReport", "", clusterInfo.Name, err)
 			}
 
+			// Send drift detection alert
+			r.sendDriftAlert(ctx, &clusterSpec, clusterInfo, driftReport)
+
 			// Step 5: Remediate drift (only if allowed by cluster policy)
 			if clusterInfo.AllowEnforcement {
 				log.Info("Remediating drift")
 				if err := r.remediateDrift(ctx, &clusterSpec, driftReport, kubeClient, dynamicClient, clusterInfo, auditLog); err != nil {
 					log.Error(err, "Failed to remediate drift")
 					// Continue even if remediation fails
+				} else {
+					// Send remediation success alert
+					r.sendRemediationAlert(ctx, &clusterSpec, clusterInfo, driftReport)
 				}
 			} else {
 				log.Info("Skipping drift remediation (enforcement not allowed on this cluster)")
@@ -514,6 +529,116 @@ func (r *ClusterSpecReconciler) remediateDrift(ctx context.Context, clusterSpec 
 	return nil
 }
 
+// sendComplianceAlert sends an alert when compliance score is below threshold
+func (r *ClusterSpecReconciler) sendComplianceAlert(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification, clusterInfo *clientpkg.ClusterInfo, scanResult *scanner.ScanResult, score int) {
+	if r.AlertManager == nil {
+		return
+	}
+
+	log := log.FromContext(ctx)
+	alert := alerts.Alert{
+		Level:       alerts.AlertLevelWarning,
+		Title:       "Compliance score below threshold",
+		Description: fmt.Sprintf("Cluster %s compliance score is %d%% (threshold: 80%%)", clusterInfo.Name, score),
+		Source:      fmt.Sprintf("ClusterSpec/%s", clusterSpec.Name),
+		EventType:   "ComplianceFailure",
+		Labels: map[string]string{
+			"cluster":      clusterInfo.Name,
+			"cluster_uid":  clusterInfo.UID,
+			"spec":         clusterSpec.Name,
+			"platform":     clusterInfo.Platform,
+		},
+		Metadata: map[string]interface{}{
+			"score":        score,
+			"total_checks": scanResult.Summary.TotalChecks,
+			"passed":       scanResult.Summary.Passed,
+			"failed":       scanResult.Summary.Failed,
+			"cluster":      clusterInfo.Name,
+		},
+	}
+
+	if err := r.AlertManager.Send(ctx, alert); err != nil {
+		log.Error(err, "Failed to send compliance alert", "cluster", clusterInfo.Name, "score", score)
+	}
+}
+
+// sendDriftAlert sends an alert when drift is detected
+func (r *ClusterSpecReconciler) sendDriftAlert(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification, clusterInfo *clientpkg.ClusterInfo, driftReport *drift.DriftReport) {
+	if r.AlertManager == nil {
+		return
+	}
+
+	log := log.FromContext(ctx)
+	eventCount := len(driftReport.Events)
+
+	// Build description with drift details
+	description := fmt.Sprintf("Detected %d drift event(s) in cluster %s", eventCount, clusterInfo.Name)
+	if eventCount > 0 {
+		description += "\n\nDrift events:"
+		for i, event := range driftReport.Events {
+			if i >= 5 {
+				description += fmt.Sprintf("\n... and %d more", eventCount-5)
+				break
+			}
+			description += fmt.Sprintf("\n- %s: %s/%s", event.DriftKind, event.Resource.Kind, event.Resource.Name)
+		}
+	}
+
+	alert := alerts.Alert{
+		Level:       alerts.AlertLevelCritical,
+		Title:       "Configuration drift detected",
+		Description: description,
+		Source:      fmt.Sprintf("ClusterSpec/%s", clusterSpec.Name),
+		EventType:   "DriftDetected",
+		Labels: map[string]string{
+			"cluster":     clusterInfo.Name,
+			"cluster_uid": clusterInfo.UID,
+			"spec":        clusterSpec.Name,
+			"platform":    clusterInfo.Platform,
+		},
+		Metadata: map[string]interface{}{
+			"event_count": eventCount,
+			"cluster":     clusterInfo.Name,
+		},
+	}
+
+	if err := r.AlertManager.Send(ctx, alert); err != nil {
+		log.Error(err, "Failed to send drift alert", "cluster", clusterInfo.Name, "events", eventCount)
+	}
+}
+
+// sendRemediationAlert sends an alert when drift remediation is performed
+func (r *ClusterSpecReconciler) sendRemediationAlert(ctx context.Context, clusterSpec *kspecv1alpha1.ClusterSpecification, clusterInfo *clientpkg.ClusterInfo, driftReport *drift.DriftReport) {
+	if r.AlertManager == nil {
+		return
+	}
+
+	log := log.FromContext(ctx)
+	eventCount := len(driftReport.Events)
+
+	alert := alerts.Alert{
+		Level:       alerts.AlertLevelInfo,
+		Title:       "Drift remediation performed",
+		Description: fmt.Sprintf("Successfully remediated %d drift event(s) in cluster %s", eventCount, clusterInfo.Name),
+		Source:      fmt.Sprintf("ClusterSpec/%s", clusterSpec.Name),
+		EventType:   "RemediationPerformed",
+		Labels: map[string]string{
+			"cluster":     clusterInfo.Name,
+			"cluster_uid": clusterInfo.UID,
+			"spec":        clusterSpec.Name,
+			"platform":    clusterInfo.Platform,
+		},
+		Metadata: map[string]interface{}{
+			"event_count": eventCount,
+			"cluster":     clusterInfo.Name,
+		},
+	}
+
+	if err := r.AlertManager.Send(ctx, alert); err != nil {
+		log.Error(err, "Failed to send remediation alert", "cluster", clusterInfo.Name)
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterSpecReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Note: We don't use Owns() for reports because ClusterSpecification is cluster-scoped
@@ -529,11 +654,13 @@ func NewClusterSpecReconciler(
 	scheme *runtime.Scheme,
 	localConfig *rest.Config,
 	clientFactory *clientpkg.ClusterClientFactory,
+	alertManager *alerts.Manager,
 ) *ClusterSpecReconciler {
 	return &ClusterSpecReconciler{
 		Client:        k8sClient,
 		Scheme:        scheme,
 		LocalConfig:   localConfig,
 		ClientFactory: clientFactory,
+		AlertManager:  alertManager,
 	}
 }

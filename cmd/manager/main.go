@@ -122,19 +122,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create alert manager for notification handling
+	alertManager := alerts.NewManager(ctrl.Log.WithName("alerts"))
+
 	// Setup ClusterSpecification controller (multi-cluster enabled)
 	if err = controllers.NewClusterSpecReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		config,
 		clientFactory,
+		alertManager,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterSpecification")
 		os.Exit(1)
 	}
-
-	// Create alert manager for notification handling
-	alertManager := alerts.NewManager(ctrl.Log.WithName("alerts"))
 
 	// Setup AlertConfig controller
 	if err = controllers.NewAlertConfigReconciler(
