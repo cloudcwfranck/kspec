@@ -50,9 +50,12 @@ DEPLOYMENTS=("kyverno-admission-controller" "kyverno-background-controller" "kyv
 
 for deployment in "${DEPLOYMENTS[@]}"; do
     if kubectl get deployment -n kyverno "$deployment" >/dev/null 2>&1; then
-        READY=$(kubectl get deployment -n kyverno "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-        DESIRED=$(kubectl get deployment -n kyverno "$deployment" -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
-        if [ "$READY" -ge "1" ] && [ "$READY" -eq "$DESIRED" ]; then
+        READY=$(kubectl get deployment -n kyverno "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+        DESIRED=$(kubectl get deployment -n kyverno "$deployment" -o jsonpath='{.status.replicas}' 2>/dev/null)
+        # Default to 0 if empty
+        READY=${READY:-0}
+        DESIRED=${DESIRED:-0}
+        if [ "$READY" -ge 1 ] 2>/dev/null && [ "$READY" -eq "$DESIRED" ] 2>/dev/null; then
             pass "$deployment is ready ($READY/$DESIRED)"
         else
             fail "$deployment is not ready ($READY/$DESIRED)"
