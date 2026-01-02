@@ -150,7 +150,7 @@ func main() {
 	// Start webhook server (v0.3.0 Phase 3)
 	if enableWebhooks {
 		setupLog.Info("Starting admission webhook server")
-		webhookServer := webhooks.NewServer(mgr.GetClient(), 9443)
+		webhookServer := webhooks.NewServer(mgr.GetClient(), 9443, alertManager)
 		if err := mgr.Add(webhookServer); err != nil {
 			setupLog.Error(err, "unable to start webhook server")
 			// Don't exit - allow operator to run without webhooks

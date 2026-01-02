@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
+	"github.com/cloudcwfranck/kspec/pkg/alerts"
 	"github.com/cloudcwfranck/kspec/pkg/metrics"
 	"github.com/cloudcwfranck/kspec/pkg/policy"
 )
@@ -40,11 +41,11 @@ type Server struct {
 }
 
 // NewServer creates a new webhook server
-func NewServer(client client.Client, port int) *Server {
+func NewServer(client client.Client, port int, alertManager *alerts.Manager) *Server {
 	return &Server{
 		Client:         client,
 		Port:           port,
-		CircuitBreaker: NewCircuitBreaker(),
+		CircuitBreaker: NewCircuitBreaker(alertManager),
 		PolicyManager:  policy.NewAdvancedPolicyManager(client),
 	}
 }
