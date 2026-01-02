@@ -35,6 +35,7 @@ import (
 
 	kspecv1alpha1 "github.com/cloudcwfranck/kspec/api/v1alpha1"
 	"github.com/cloudcwfranck/kspec/controllers"
+	"github.com/cloudcwfranck/kspec/pkg/alerts"
 	clientpkg "github.com/cloudcwfranck/kspec/pkg/client"
 	"github.com/cloudcwfranck/kspec/pkg/webhooks"
 	// +kubebuilder:scaffold:imports
@@ -129,6 +130,19 @@ func main() {
 		clientFactory,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterSpecification")
+		os.Exit(1)
+	}
+
+	// Create alert manager for notification handling
+	alertManager := alerts.NewManager(ctrl.Log.WithName("alerts"))
+
+	// Setup AlertConfig controller
+	if err = controllers.NewAlertConfigReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		alertManager,
+	).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AlertConfig")
 		os.Exit(1)
 	}
 
