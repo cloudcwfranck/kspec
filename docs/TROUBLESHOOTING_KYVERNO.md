@@ -316,3 +316,106 @@ If issues persist:
 4. **Open an issue:**
    - kspec issues: https://github.com/cloudcwfranck/kspec/issues
    - Kyverno issues: https://github.com/kyverno/kyverno/issues
+
+## CI/CD Webhook Validation Issues
+
+### Symptom: Webhook Validation Fails in CI
+
+**Error Messages:**
+```
+- validate-kyverno.sh: line 95: integer expression expected
+- FAIL: Validating webhook configuration has no webhooks
+- FAIL: Mutating webhook configuration has no webhooks
+```
+
+Even though Kyverno pods are Running and kyverno-svc endpoint exists.
+
+### Root Cause
+
+1. **Timing Issues**: Webhook configurations may not be created immediately after pods are ready
+2. **Hardcoded Names**: Webhook configuration names may vary between Kyverno versions
+3. **Integer Parsing**: Shell variables may contain whitespace or non-numeric values
+
+### Solution
+
+The validation script now includes:
+
+1. **Dynamic webhook discovery** using labels:
+   ```bash
+   # Find all validating webhooks for Kyverno
+   kubectl get validatingwebhookconfigurations \
+     -l app.kubernetes.io/instance=kyverno \
+     -o json | jq '[.items[].webhooks | length] | add // 0'
+   ```
+
+2. **Wait/retry logic** with 120-second timeout
+3. **Integer sanitization** for all numeric comparisons
+
+### Debug Commands
+
+If webhook validation fails, run these commands to diagnose:
+
+```bash
+# 1. List all webhook configurations with labels
+kubectl get validatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno -o wide
+kubectl get mutatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno -o wide
+
+# 2. Count webhooks using jq (requires jq)
+VWC_COUNT=$(kubectl get validatingwebhookconfigurations \
+  -l app.kubernetes.io/instance=kyverno \
+  -o json | jq '[.items[].webhooks | length] | add // 0')
+echo "Validating webhooks: $VWC_COUNT"
+
+MWC_COUNT=$(kubectl get mutatingwebhookconfigurations \
+  -l app.kubernetes.io/instance=kyverno \
+  -o json | jq '[.items[].webhooks | length] | add // 0')
+echo "Mutating webhooks: $MWC_COUNT"
+
+# 3. Describe webhook configurations
+kubectl describe validatingwebhookconfigurations \
+  -l app.kubernetes.io/instance=kyverno
+
+kubectl describe mutatingwebhookconfigurations \
+  -l app.kubernetes.io/instance=kyverno
+
+# 4. Check Kyverno admission controller logs
+kubectl logs -n kyverno \
+  -l app.kubernetes.io/component=admission-controller \
+  --tail=100
+
+# 5. Check if webhooks have CA bundles
+kubectl get validatingwebhookconfigurations \
+  -l app.kubernetes.io/instance=kyverno \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{range .webhooks[*]}  {.name}: CA bundle length = {.clientConfig.caBundle | length}{"\n"}{end}{end}'
+```
+
+### Expected Output
+
+A healthy Kyverno installation should show:
+
+```bash
+$ kubectl get validatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno
+NAME                                         WEBHOOKS   AGE
+kyverno-resource-validating-webhook-cfg      1          5m
+kyverno-policy-validating-webhook-cfg        1          5m
+kyverno-cleanup-validating-webhook-cfg       1          5m
+
+$ kubectl get mutatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno  
+NAME                                       WEBHOOKS   AGE
+kyverno-resource-mutating-webhook-cfg      1          5m
+```
+
+### Requirements
+
+- **jq must be installed** for webhook validation
+- GitHub Actions Ubuntu runners have jq pre-installed
+- For local testing: `sudo apt-get install jq` or `brew install jq`
+
+### Timeout Configuration
+
+The validation script waits up to 120 seconds for webhooks to be configured. If this is insufficient:
+
+1. Check that cert-manager (if used) is healthy
+2. Check Kyverno admission controller logs for errors
+3. Verify TLS secrets exist: `kubectl get secrets -n kyverno | grep tls`
+

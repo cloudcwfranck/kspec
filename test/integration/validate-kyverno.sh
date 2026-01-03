@@ -31,8 +31,78 @@ info() {
     echo "ℹ INFO: $1"
 }
 
+# Sanitize a value to a safe integer (strip whitespace, default to 0)
+sanitize_int() {
+    local val="$1"
+    val="$(echo "$val" | tr -d '[:space:]')"
+    if [[ "$val" =~ ^[0-9]+$ ]]; then
+        echo "$val"
+    else
+        echo "0"
+    fi
+}
+
+# Check if jq is installed
+check_jq() {
+    if ! command -v jq &>/dev/null; then
+        fail "jq is not installed"
+        echo ""
+        echo "jq is required for webhook validation. Please install it:"
+        echo "  macOS:   brew install jq"
+        echo "  Ubuntu:  apt-get install jq"
+        echo "  Alpine:  apk add jq"
+        exit 1
+    fi
+}
+
+# Wait for webhooks to be configured
+# Usage: wait_for_webhooks <kind> <min_count> <timeout_seconds>
+wait_for_webhooks() {
+    local kind="$1"
+    local min_count="$2"
+    local timeout="$3"
+    local interval=5
+    local elapsed=0
+
+    info "Waiting for $kind webhooks (min: $min_count, timeout: ${timeout}s)..."
+
+    while [ "$elapsed" -lt "$timeout" ]; do
+        local total
+        total=$(kubectl get "$kind" -l app.kubernetes.io/instance=kyverno -o json 2>/dev/null \
+            | jq '[.items[].webhooks | length] | add // 0' 2>/dev/null || echo "0")
+        total=$(sanitize_int "$total")
+
+        if [ "$total" -ge "$min_count" ]; then
+            return 0
+        fi
+
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+    done
+
+    # Timeout reached - print diagnostics
+    warn "Timeout waiting for $kind webhooks after ${timeout}s"
+    echo ""
+    echo "=== Diagnostic Output ==="
+    echo "Webhook configurations:"
+    kubectl get "$kind" -l app.kubernetes.io/instance=kyverno -o wide 2>&1 || true
+    echo ""
+    echo "Webhook configuration details:"
+    kubectl describe "$kind" -l app.kubernetes.io/instance=kyverno 2>&1 || true
+    echo ""
+    echo "Kyverno admission controller logs (last 50 lines):"
+    kubectl logs -n kyverno -l app.kubernetes.io/component=admission-controller --tail=50 2>&1 || true
+    echo "=== End Diagnostic Output ==="
+    echo ""
+
+    return 1
+}
+
 echo "=== Kyverno Installation Validation ==="
 echo ""
+
+# 0. Check prerequisites
+check_jq
 
 # 1. Check namespace exists
 info "Checking kyverno namespace..."
@@ -50,12 +120,12 @@ DEPLOYMENTS=("kyverno-admission-controller" "kyverno-background-controller" "kyv
 
 for deployment in "${DEPLOYMENTS[@]}"; do
     if kubectl get deployment -n kyverno "$deployment" >/dev/null 2>&1; then
-        READY=$(kubectl get deployment -n kyverno "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
-        DESIRED=$(kubectl get deployment -n kyverno "$deployment" -o jsonpath='{.status.replicas}' 2>/dev/null)
-        # Default to 0 if empty
-        READY=${READY:-0}
-        DESIRED=${DESIRED:-0}
-        if [ "$READY" -ge 1 ] 2>/dev/null && [ "$READY" -eq "$DESIRED" ] 2>/dev/null; then
+        READY=$(kubectl get deployment -n kyverno "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+        DESIRED=$(kubectl get deployment -n kyverno "$deployment" -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+        READY=$(sanitize_int "$READY")
+        DESIRED=$(sanitize_int "$DESIRED")
+
+        if [ "$READY" -ge 1 ] && [ "$READY" -eq "$DESIRED" ]; then
             pass "$deployment is ready ($READY/$DESIRED)"
         else
             fail "$deployment is not ready ($READY/$DESIRED)"
@@ -72,28 +142,31 @@ kubectl get pods -n kyverno
 
 # Count only pods from the main deployments (by name prefix)
 # Exclude CronJob pods which may be in ImagePullBackOff
-DEPLOYMENT_PODS=$(kubectl get pods -n kyverno --no-headers | grep -E "kyverno-(admission|background|cleanup|reports)-controller-" | awk '{print $1}')
-DEPLOYMENT_READY=0
-DEPLOYMENT_TOTAL=0
+DEPLOYMENT_PODS=$(kubectl get pods -n kyverno --no-headers 2>/dev/null | grep -E "kyverno-(admission|background|cleanup|reports)-controller-" | wc -l || echo "0")
+DEPLOYMENT_PODS=$(sanitize_int "$DEPLOYMENT_PODS")
 
-for pod in $DEPLOYMENT_PODS; do
-    DEPLOYMENT_TOTAL=$((DEPLOYMENT_TOTAL + 1))
-    POD_STATUS=$(kubectl get pod -n kyverno "$pod" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-    if [ "$POD_STATUS" = "True" ]; then
-        DEPLOYMENT_READY=$((DEPLOYMENT_READY + 1))
-    fi
-done
-
-if [ "$DEPLOYMENT_READY" -eq "$DEPLOYMENT_TOTAL" ] && [ "$DEPLOYMENT_TOTAL" -gt "0" ]; then
-    pass "All Kyverno deployment pods are ready ($DEPLOYMENT_READY/$DEPLOYMENT_TOTAL)"
+if [ "$DEPLOYMENT_PODS" -eq 0 ]; then
+    fail "No deployment pods found"
 else
-    fail "Not all deployment pods are ready ($DEPLOYMENT_READY/$DEPLOYMENT_TOTAL)"
+    DEPLOYMENT_READY=$(kubectl get pods -n kyverno --no-headers 2>/dev/null | grep -E "kyverno-(admission|background|cleanup|reports)-controller-" | grep "Running" | wc -l || echo "0")
+    DEPLOYMENT_READY=$(sanitize_int "$DEPLOYMENT_READY")
+    DEPLOYMENT_TOTAL=$DEPLOYMENT_PODS
+
+    if [ "$DEPLOYMENT_READY" -eq "$DEPLOYMENT_TOTAL" ]; then
+        pass "All deployment pods are ready ($DEPLOYMENT_READY/$DEPLOYMENT_TOTAL)"
+    else
+        fail "Not all deployment pods are ready ($DEPLOYMENT_READY/$DEPLOYMENT_TOTAL)"
+    fi
 fi
 
 # Check if there are any CronJob cleanup pods (info only, not a failure)
 CRONJOB_PODS=$(kubectl get pods -n kyverno --no-headers 2>/dev/null | grep -E "kyverno-cleanup-.*-[0-9]+-" | wc -l || echo "0")
-if [ "$CRONJOB_PODS" -gt "0" ]; then
+CRONJOB_PODS=$(sanitize_int "$CRONJOB_PODS")
+
+if [ "$CRONJOB_PODS" -gt 0 ]; then
     CRONJOB_READY=$(kubectl get pods -n kyverno --no-headers 2>/dev/null | grep -E "kyverno-cleanup-.*-[0-9]+-" | grep "Running" | wc -l || echo "0")
+    CRONJOB_READY=$(sanitize_int "$CRONJOB_READY")
+
     if [ "$CRONJOB_READY" -eq "$CRONJOB_PODS" ]; then
         pass "CronJob cleanup pods are ready ($CRONJOB_READY/$CRONJOB_PODS)"
     else
@@ -129,30 +202,38 @@ for secret in "${TLS_SECRETS[@]}"; do
     fi
 done
 
-# 5. Check webhook configurations
+# 5. Check webhook configurations (with wait/retry)
 echo ""
 info "Checking webhook configurations..."
 
-if kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg >/dev/null 2>&1; then
-    VALIDATING_COUNT=$(kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg -o jsonpath='{.webhooks}' 2>/dev/null | grep -o "name" | wc -l || echo "0")
-    if [ "$VALIDATING_COUNT" -gt "0" ]; then
-        pass "Validating webhook configuration exists with $VALIDATING_COUNT webhook(s)"
+# Wait for ValidatingWebhookConfigurations
+if wait_for_webhooks "validatingwebhookconfigurations" 1 120; then
+    VWC_TOTAL=$(kubectl get validatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno -o json 2>/dev/null \
+        | jq '[.items[].webhooks | length] | add // 0' 2>/dev/null || echo "0")
+    VWC_TOTAL=$(sanitize_int "$VWC_TOTAL")
+
+    if [ "$VWC_TOTAL" -gt 0 ]; then
+        pass "Found $VWC_TOTAL validating webhook(s)"
     else
-        fail "Validating webhook configuration has no webhooks"
+        fail "No validating webhooks configured"
     fi
 else
-    fail "Validating webhook configuration not found"
+    fail "Validating webhook configuration not ready after timeout"
 fi
 
-if kubectl get mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg >/dev/null 2>&1; then
-    MUTATING_COUNT=$(kubectl get mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg -o jsonpath='{.webhooks}' 2>/dev/null | grep -o "name" | wc -l || echo "0")
-    if [ "$MUTATING_COUNT" -gt "0" ]; then
-        pass "Mutating webhook configuration exists with $MUTATING_COUNT webhook(s)"
+# Wait for MutatingWebhookConfigurations
+if wait_for_webhooks "mutatingwebhookconfigurations" 1 120; then
+    MWC_TOTAL=$(kubectl get mutatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno -o json 2>/dev/null \
+        | jq '[.items[].webhooks | length] | add // 0' 2>/dev/null || echo "0")
+    MWC_TOTAL=$(sanitize_int "$MWC_TOTAL")
+
+    if [ "$MWC_TOTAL" -gt 0 ]; then
+        pass "Found $MWC_TOTAL mutating webhook(s)"
     else
-        fail "Mutating webhook configuration has no webhooks"
+        fail "No mutating webhooks configured"
     fi
 else
-    fail "Mutating webhook configuration not found"
+    fail "Mutating webhook configuration not ready after timeout"
 fi
 
 # 6. Check webhook service
@@ -163,8 +244,10 @@ if kubectl get svc -n kyverno kyverno-svc >/dev/null 2>&1; then
     pass "Webhook service 'kyverno-svc' exists"
 
     # Check service endpoints
-    ENDPOINTS=$(kubectl get endpoints -n kyverno kyverno-svc -o jsonpath='{.subsets[*].addresses[*].ip}' | wc -w)
-    if [ "$ENDPOINTS" -gt "0" ]; then
+    ENDPOINTS=$(kubectl get endpoints -n kyverno kyverno-svc -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null | wc -w || echo "0")
+    ENDPOINTS=$(sanitize_int "$ENDPOINTS")
+
+    if [ "$ENDPOINTS" -gt 0 ]; then
         pass "Service has $ENDPOINTS endpoint(s)"
         kubectl get endpoints -n kyverno kyverno-svc
     else
@@ -244,10 +327,12 @@ info "Checking for cert-manager..."
 if kubectl get namespace cert-manager >/dev/null 2>&1; then
     pass "cert-manager namespace exists"
 
-    CERT_MANAGER_READY=$(kubectl get pods -n cert-manager -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -o "True" | wc -l)
-    CERT_MANAGER_PODS=$(kubectl get pods -n cert-manager --no-headers | wc -l)
+    CERT_MANAGER_READY=$(kubectl get pods -n cert-manager -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null | grep -o "True" | wc -l || echo "0")
+    CERT_MANAGER_PODS=$(kubectl get pods -n cert-manager --no-headers 2>/dev/null | wc -l || echo "0")
+    CERT_MANAGER_READY=$(sanitize_int "$CERT_MANAGER_READY")
+    CERT_MANAGER_PODS=$(sanitize_int "$CERT_MANAGER_PODS")
 
-    if [ "$CERT_MANAGER_READY" -eq "$CERT_MANAGER_PODS" ] && [ "$CERT_MANAGER_PODS" -gt "0" ]; then
+    if [ "$CERT_MANAGER_READY" -eq "$CERT_MANAGER_PODS" ] && [ "$CERT_MANAGER_PODS" -gt 0 ]; then
         pass "cert-manager is running ($CERT_MANAGER_READY/$CERT_MANAGER_PODS pods ready)"
     else
         warn "cert-manager pods may not be ready ($CERT_MANAGER_READY/$CERT_MANAGER_PODS)"
@@ -261,7 +346,7 @@ fi
 echo ""
 echo "=== Validation Summary ==="
 echo -e "${GREEN}Passed: $PASSED${NC}"
-if [ "$FAILED" -gt "0" ]; then
+if [ "$FAILED" -gt 0 ]; then
     echo -e "${RED}Failed: $FAILED${NC}"
     echo ""
     echo "For troubleshooting, see: docs/TROUBLESHOOTING_KYVERNO.md"
