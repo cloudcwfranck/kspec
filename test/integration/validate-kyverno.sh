@@ -55,7 +55,46 @@ check_jq() {
     fi
 }
 
-# Wait for webhooks to be configured
+# List ValidatingWebhookConfiguration names matching Kyverno pattern
+list_vwc_names() {
+    kubectl get validatingwebhookconfigurations -o json 2>/dev/null \
+        | jq -r '.items[].metadata.name' 2>/dev/null \
+        | grep -E '^kyverno-.*validating-webhook-cfg$' || true
+}
+
+# List MutatingWebhookConfiguration names matching Kyverno pattern
+list_mwc_names() {
+    kubectl get mutatingwebhookconfigurations -o json 2>/dev/null \
+        | jq -r '.items[].metadata.name' 2>/dev/null \
+        | grep -E '^kyverno-.*mutating-webhook-cfg$' || true
+}
+
+# Wait for a secret to exist
+# Usage: wait_for_secret <namespace> <secret_name> <timeout_seconds>
+wait_for_secret() {
+    local namespace="$1"
+    local secret_name="$2"
+    local timeout="$3"
+    local interval=5
+    local elapsed=0
+
+    info "Waiting for secret $namespace/$secret_name (timeout: ${timeout}s)..."
+
+    while [ "$elapsed" -lt "$timeout" ]; do
+        if kubectl get secret -n "$namespace" "$secret_name" >/dev/null 2>&1; then
+            pass "Secret $namespace/$secret_name exists"
+            return 0
+        fi
+
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+    done
+
+    fail "Secret $namespace/$secret_name not found after ${timeout}s timeout"
+    return 1
+}
+
+# Wait for webhook configurations to be created and configured
 # Usage: wait_for_webhooks <kind> <min_count> <timeout_seconds>
 wait_for_webhooks() {
     local kind="$1"
@@ -67,13 +106,37 @@ wait_for_webhooks() {
     info "Waiting for $kind webhooks (min: $min_count, timeout: ${timeout}s)..."
 
     while [ "$elapsed" -lt "$timeout" ]; do
-        local total
-        total=$(kubectl get "$kind" -l app.kubernetes.io/instance=kyverno -o json 2>/dev/null \
-            | jq '[.items[].webhooks | length] | add // 0' 2>/dev/null || echo "0")
-        total=$(sanitize_int "$total")
+        local names
+        if [ "$kind" = "validatingwebhookconfigurations" ]; then
+            names=$(list_vwc_names)
+        else
+            names=$(list_mwc_names)
+        fi
 
-        if [ "$total" -ge "$min_count" ]; then
-            return 0
+        # Count matching webhook configs
+        local config_count
+        config_count=$(echo "$names" | grep -c . || echo "0")
+        config_count=$(sanitize_int "$config_count")
+
+        if [ "$config_count" -gt 0 ]; then
+            # Found configs, now count webhooks within them
+            local total=0
+            while IFS= read -r name; do
+                [ -z "$name" ] && continue
+                local count
+                count=$(kubectl get "$kind" "$name" -o json 2>/dev/null \
+                    | jq '.webhooks | length' 2>/dev/null || echo "0")
+                count=$(sanitize_int "$count")
+                total=$((total + count))
+            done <<< "$names"
+
+            info "Found $config_count config(s) with $total webhook(s): $(echo "$names" | tr '\n' ' ')"
+
+            if [ "$total" -ge "$min_count" ]; then
+                return 0
+            fi
+        else
+            info "No $kind found matching pattern (elapsed: ${elapsed}s)"
         fi
 
         sleep "$interval"
@@ -81,17 +144,43 @@ wait_for_webhooks() {
     done
 
     # Timeout reached - print diagnostics
-    warn "Timeout waiting for $kind webhooks after ${timeout}s"
+    warn "Timeout waiting for $kind after ${timeout}s"
     echo ""
     echo "=== Diagnostic Output ==="
-    echo "Webhook configurations:"
-    kubectl get "$kind" -l app.kubernetes.io/instance=kyverno -o wide 2>&1 || true
+    echo "All webhook configurations:"
+    kubectl get "$kind" -o wide 2>&1 || true
     echo ""
-    echo "Webhook configuration details:"
-    kubectl describe "$kind" -l app.kubernetes.io/instance=kyverno 2>&1 || true
+    echo "Kyverno webhook configurations (by name pattern):"
+    kubectl get "$kind" -o name 2>&1 | grep kyverno || echo "  (none found)"
     echo ""
-    echo "Kyverno admission controller logs (last 50 lines):"
-    kubectl logs -n kyverno -l app.kubernetes.io/component=admission-controller --tail=50 2>&1 || true
+
+    if [ "$kind" = "validatingwebhookconfigurations" ]; then
+        local vwc_names
+        vwc_names=$(list_vwc_names)
+        if [ -n "$vwc_names" ]; then
+            echo "Details of Kyverno validating webhook configs:"
+            while IFS= read -r name; do
+                [ -z "$name" ] && continue
+                echo "--- $name ---"
+                kubectl describe validatingwebhookconfiguration "$name" 2>&1 || true
+            done <<< "$vwc_names"
+        fi
+    else
+        local mwc_names
+        mwc_names=$(list_mwc_names)
+        if [ -n "$mwc_names" ]; then
+            echo "Details of Kyverno mutating webhook configs:"
+            while IFS= read -r name; do
+                [ -z "$name" ] && continue
+                echo "--- $name ---"
+                kubectl describe mutatingwebhookconfiguration "$name" 2>&1 || true
+            done <<< "$mwc_names"
+        fi
+    fi
+
+    echo ""
+    echo "Kyverno admission controller logs (last 100 lines):"
+    kubectl logs -n kyverno -l app.kubernetes.io/component=admission-controller --tail=100 2>&1 || true
     echo "=== End Diagnostic Output ==="
     echo ""
 
@@ -174,26 +263,30 @@ if [ "$CRONJOB_PODS" -gt 0 ]; then
     fi
 fi
 
-# 4. Check TLS secrets
+# 4. Wait for TLS CA secret (required before webhook configs are created)
 echo ""
-info "Checking TLS secrets..."
+info "Waiting for TLS secrets (required for webhook configuration)..."
 
-TLS_SECRETS=("kyverno-svc.kyverno.svc.kyverno-tls-pair" "kyverno-svc.kyverno.svc.kyverno-tls-ca")
+# Wait for CA secret first - Kyverno needs this before creating webhook configs
+if ! wait_for_secret "kyverno" "kyverno-svc.kyverno.svc.kyverno-tls-ca" 180; then
+    warn "TLS CA secret not found - webhook configuration may be delayed"
+fi
+
+# Check TLS pair secret
+TLS_SECRETS=("kyverno-svc.kyverno.svc.kyverno-tls-pair")
 for secret in "${TLS_SECRETS[@]}"; do
     if kubectl get secret -n kyverno "$secret" >/dev/null 2>&1; then
         pass "TLS secret '$secret' exists"
 
-        # Validate certificate if it's the TLS pair
-        if [[ "$secret" == *"tls-pair"* ]]; then
-            if kubectl get secret -n kyverno "$secret" -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -text >/dev/null 2>&1; then
-                pass "TLS certificate in '$secret' is valid"
+        # Validate certificate
+        if kubectl get secret -n kyverno "$secret" -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -text >/dev/null 2>&1; then
+            pass "TLS certificate in '$secret' is valid"
 
-                # Show certificate details
-                echo "  Certificate details:"
-                kubectl get secret -n kyverno "$secret" -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -subject -issuer -dates 2>/dev/null | sed 's/^/    /'
-            else
-                fail "TLS certificate in '$secret' is invalid"
-            fi
+            # Show certificate details
+            echo "  Certificate details:"
+            kubectl get secret -n kyverno "$secret" -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -subject -issuer -dates 2>/dev/null | sed 's/^/    /'
+        else
+            fail "TLS certificate in '$secret' is invalid"
         fi
     else
         fail "TLS secret '$secret' not found"
@@ -203,17 +296,30 @@ for secret in "${TLS_SECRETS[@]}"; do
 done
 
 # 5. Check webhook configurations (with wait/retry)
+# Increased timeout to 300s for CI environments (kind can be slow)
 echo ""
 info "Checking webhook configurations..."
 
 # Wait for ValidatingWebhookConfigurations
-if wait_for_webhooks "validatingwebhookconfigurations" 1 120; then
-    VWC_TOTAL=$(kubectl get validatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno -o json 2>/dev/null \
-        | jq '[.items[].webhooks | length] | add // 0' 2>/dev/null || echo "0")
-    VWC_TOTAL=$(sanitize_int "$VWC_TOTAL")
+if wait_for_webhooks "validatingwebhookconfigurations" 1 300; then
+    VWC_NAMES=$(list_vwc_names)
+    VWC_COUNT=$(echo "$VWC_NAMES" | grep -c . || echo "0")
+    VWC_COUNT=$(sanitize_int "$VWC_COUNT")
+
+    # Count total webhooks across all configs
+    VWC_TOTAL=0
+    while IFS= read -r name; do
+        [ -z "$name" ] && continue
+        local count
+        count=$(kubectl get validatingwebhookconfigurations "$name" -o json 2>/dev/null \
+            | jq '.webhooks | length' 2>/dev/null || echo "0")
+        count=$(sanitize_int "$count")
+        VWC_TOTAL=$((VWC_TOTAL + count))
+    done <<< "$VWC_NAMES"
 
     if [ "$VWC_TOTAL" -gt 0 ]; then
-        pass "Found $VWC_TOTAL validating webhook(s)"
+        pass "Found $VWC_COUNT validating webhook config(s) with $VWC_TOTAL total webhook(s)"
+        echo "  Configs: $(echo "$VWC_NAMES" | tr '\n' ' ')"
     else
         fail "No validating webhooks configured"
     fi
@@ -222,13 +328,25 @@ else
 fi
 
 # Wait for MutatingWebhookConfigurations
-if wait_for_webhooks "mutatingwebhookconfigurations" 1 120; then
-    MWC_TOTAL=$(kubectl get mutatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno -o json 2>/dev/null \
-        | jq '[.items[].webhooks | length] | add // 0' 2>/dev/null || echo "0")
-    MWC_TOTAL=$(sanitize_int "$MWC_TOTAL")
+if wait_for_webhooks "mutatingwebhookconfigurations" 1 300; then
+    MWC_NAMES=$(list_mwc_names)
+    MWC_COUNT=$(echo "$MWC_NAMES" | grep -c . || echo "0")
+    MWC_COUNT=$(sanitize_int "$MWC_COUNT")
+
+    # Count total webhooks across all configs
+    MWC_TOTAL=0
+    while IFS= read -r name; do
+        [ -z "$name" ] && continue
+        local count
+        count=$(kubectl get mutatingwebhookconfigurations "$name" -o json 2>/dev/null \
+            | jq '.webhooks | length' 2>/dev/null || echo "0")
+        count=$(sanitize_int "$count")
+        MWC_TOTAL=$((MWC_TOTAL + count))
+    done <<< "$MWC_NAMES"
 
     if [ "$MWC_TOTAL" -gt 0 ]; then
-        pass "Found $MWC_TOTAL mutating webhook(s)"
+        pass "Found $MWC_COUNT mutating webhook config(s) with $MWC_TOTAL total webhook(s)"
+        echo "  Configs: $(echo "$MWC_NAMES" | tr '\n' ' ')"
     else
         fail "No mutating webhooks configured"
     fi

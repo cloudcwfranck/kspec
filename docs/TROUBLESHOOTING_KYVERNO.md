@@ -419,3 +419,162 @@ The validation script waits up to 120 seconds for webhooks to be configured. If 
 2. Check Kyverno admission controller logs for errors
 3. Verify TLS secrets exist: `kubectl get secrets -n kyverno | grep tls`
 
+
+## CI/CD Webhook Validation Issues
+
+### Symptom: Webhook Validation Fails in CI
+
+**Error Messages:**
+```
+- Timeout waiting for validatingwebhookconfigurations
+- No resources found
+- FAIL: Validating webhook configuration has no webhooks
+```
+
+Even though Kyverno pods are Running and kyverno-svc endpoint exists.
+
+### Root Causes
+
+1. **Missing Labels**: Webhook configurations often DO NOT have `app.kubernetes.io/*` labels
+   - Labels are not guaranteed across Kyverno versions
+   - Label-based discovery is unreliable
+
+2. **TLS Secret Dependency**: Kyverno will NOT create webhook configurations until TLS CA secret exists
+   - Secret: `kyverno-svc.kyverno.svc.kyverno-tls-ca`
+   - This can take 30-180 seconds after pods are ready
+   - Check admission controller logs for: "secret not found"
+
+3. **Timing Issues**: Webhook configurations lag behind pod readiness
+   - Pods may be Running but webhooks not yet configured
+   - Can take 1-5 minutes in kind/CI environments
+
+### Solution
+
+The validation script now:
+
+1. **Discovers webhooks by name pattern** (no labels):
+   ```bash
+   # Find all Kyverno validating webhook configs
+   kubectl get validatingwebhookconfigurations -o json \
+     | jq -r '.items[].metadata.name' \
+     | grep -E '^kyverno-.*validating-webhook-cfg$'
+
+   # Find all Kyverno mutating webhook configs
+   kubectl get mutatingwebhookconfigurations -o json \
+     | jq -r '.items[].metadata.name' \
+     | grep -E '^kyverno-.*mutating-webhook-cfg$'
+   ```
+
+2. **Waits for TLS CA secret first** (180s timeout)
+3. **Waits for webhooks with 300s timeout** (increased for CI)
+4. **Prints progress**: shows found config names and webhook counts each retry
+
+### Debug Commands
+
+**Note**: Webhook configurations are cluster-scoped. Do NOT use `-n namespace` flags.
+
+```bash
+# 1. List all webhook configurations
+kubectl get validatingwebhookconfigurations
+kubectl get mutatingwebhookconfigurations
+
+# 2. Find Kyverno webhook configs by name pattern
+kubectl get validatingwebhookconfigurations -o name | grep kyverno
+kubectl get mutatingwebhookconfigurations -o name | grep kyverno
+
+# 3. Count webhooks using jq (requires jq)
+# Get all Kyverno VWC names
+VWC_NAMES=$(kubectl get validatingwebhookconfigurations -o json \
+  | jq -r '.items[].metadata.name' \
+  | grep -E '^kyverno-.*validating-webhook-cfg$')
+
+# Count webhooks across all configs
+for name in $VWC_NAMES; do
+  count=$(kubectl get validatingwebhookconfigurations "$name" -o json \
+    | jq '.webhooks | length')
+  echo "$name: $count webhooks"
+done
+
+# 4. Check TLS secrets (required for webhook creation)
+kubectl get secrets -n kyverno | grep tls
+kubectl get secret -n kyverno kyverno-svc.kyverno.svc.kyverno-tls-ca -o yaml
+
+# 5. Describe webhook configurations (NO -n flag)
+kubectl describe validatingwebhookconfiguration <name>
+kubectl describe mutatingwebhookconfiguration <name>
+
+# 6. Check Kyverno admission controller logs for webhook creation
+kubectl logs -n kyverno -l app.kubernetes.io/component=admission-controller --tail=100 \
+  | grep -i webhook
+
+# 7. Check for TLS secret errors
+kubectl logs -n kyverno -l app.kubernetes.io/component=admission-controller --tail=200 \
+  | grep -i "secret.*not found"
+```
+
+### Expected Output
+
+A healthy Kyverno installation should show:
+
+```bash
+$ kubectl get validatingwebhookconfigurations | grep kyverno
+kyverno-cleanup-validating-webhook-cfg       1          5m
+kyverno-exception-validating-webhook-cfg     1          5m
+kyverno-policy-validating-webhook-cfg        1          5m
+kyverno-resource-validating-webhook-cfg      1          5m
+
+$ kubectl get mutatingwebhookconfigurations | grep kyverno
+kyverno-policy-mutating-webhook-cfg          1          5m
+kyverno-resource-mutating-webhook-cfg        1          5m
+kyverno-verify-mutating-webhook-cfg          1          5m
+```
+
+**Note**: Exact names and count vary by Kyverno version. The validation script discovers them dynamically.
+
+### Webhook Configuration Sequence
+
+1. **cert-manager** (if used) creates TLS certificates → secrets in `kyverno` namespace
+2. **Kyverno admission controller** detects TLS secrets exist
+3. **Kyverno** creates webhook configurations with CA bundles
+4. **Webhooks become active** and can validate/mutate resources
+
+If any step fails, webhooks won't be created. Check logs at each layer.
+
+### Requirements
+
+- **jq must be installed** for webhook validation
+- GitHub Actions Ubuntu runners have jq pre-installed
+- For local testing: `sudo apt-get install jq` or `brew install jq`
+
+### Timeout Configuration
+
+The validation script uses these timeouts:
+- **TLS CA secret**: 180 seconds
+- **Webhook configurations**: 300 seconds (increased for kind/CI)
+
+If validation still times out:
+1. Check cert-manager (if used) is healthy: `kubectl get pods -n cert-manager`
+2. Check Kyverno admission controller logs for errors
+3. Verify cluster has sufficient resources (kind may be CPU-starved)
+
+### Common Mistakes
+
+❌ **Wrong**: Using namespace flag for cluster-scoped resources
+```bash
+kubectl get validatingwebhookconfigurations -n kyverno  # WRONG
+```
+
+✅ **Correct**: No namespace flag
+```bash
+kubectl get validatingwebhookconfigurations  # CORRECT
+```
+
+❌ **Wrong**: Assuming labels exist
+```bash
+kubectl get validatingwebhookconfigurations -l app.kubernetes.io/instance=kyverno  # May return nothing
+```
+
+✅ **Correct**: Use name patterns
+```bash
+kubectl get validatingwebhookconfigurations -o name | grep kyverno  # Always works
+```
