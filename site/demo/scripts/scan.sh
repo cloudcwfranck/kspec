@@ -27,14 +27,15 @@ echo "Running compliance scan..."
 echo ""
 
 # Run scan with text output (default)
-../../../kspec scan --spec "$SPEC_FILE"
+# Note: scan exits with code 1 when violations are found, which is expected behavior
+../../../kspec scan --spec "$SPEC_FILE" || true
 
 echo ""
 echo "Generating SARIF report for GitHub Code Scanning..."
 echo ""
 
 # Generate SARIF report
-../../../kspec scan --spec "$SPEC_FILE" --output sarif > compliance-report.sarif
+../../../kspec scan --spec "$SPEC_FILE" --output sarif > compliance-report.sarif || true
 
 echo "✓ SARIF report written to compliance-report.sarif"
 echo ""

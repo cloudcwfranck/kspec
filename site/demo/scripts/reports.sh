@@ -20,7 +20,8 @@ echo "Generating OSCAL assessment report..."
 echo ""
 
 # Generate OSCAL report
-../../../kspec scan --spec "$SPEC_FILE" --output oscal > oscal-assessment.json
+# Note: scan exits with code 1 when violations are found, which is expected behavior
+../../../kspec scan --spec "$SPEC_FILE" --output oscal > oscal-assessment.json || true
 
 echo "✓ OSCAL assessment report written to oscal-assessment.json"
 echo ""
@@ -33,7 +34,7 @@ echo "Generating Markdown compliance report..."
 echo ""
 
 # Generate Markdown report
-../../../kspec scan --spec "$SPEC_FILE" --output markdown > COMPLIANCE.md
+../../../kspec scan --spec "$SPEC_FILE" --output markdown > COMPLIANCE.md || true
 
 echo "✓ Markdown compliance report written to COMPLIANCE.md"
 echo ""
