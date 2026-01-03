@@ -1,6 +1,6 @@
 {
   "$schema": "./demoStepsSchema.json",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "prompt": "(kind-kspec) franck@csengineering$",
   "tabs": [
     {
@@ -13,12 +13,12 @@
           "output": "kind-kspec"
         },
         {
-          "command": "kspec scan --spec specs/examples/strict.yaml --format table",
-          "output": "⠿ Loading spec: specs/examples/strict.yaml\n✓ Connected to cluster: kind-kspec\n✓ Analyzing 23 pods across 5 namespaces\n\n┌─────────────────────────────────┬────────┬──────────┬─────────────────────┐\n│ Check                           │ Status │ Severity │ Details             │\n├─────────────────────────────────┼────────┼──────────┼─────────────────────┤\n│ pod-security-baseline           │ PASS   │ high     │ 23/23 pods compliant│\n│ no-privileged-containers        │ FAIL   │ critical │ 2/23 pods failing   │\n│ require-resource-limits         │ FAIL   │ medium   │ 8/23 pods failing   │\n│ network-policy-required         │ PASS   │ high     │ 5/5 namespaces ok   │\n│ restrict-hostpath-volumes       │ PASS   │ high     │ 23/23 pods compliant│\n│ require-non-root-user           │ FAIL   │ medium   │ 3/23 pods failing   │\n└─────────────────────────────────┴────────┴──────────┴─────────────────────┘\n\nSummary:\n  Passed: 3/6 checks (50.0%)\n  Failed: 3/6 checks\n  \n  Critical issues: 1\n  High issues: 0\n  Medium issues: 2\n\nRecommendation: Run 'kspec enforce' to auto-generate policies"
+          "command": "kspec scan --spec specs/production.yaml",
+          "output": "Scanning cluster...\n\n┌─────────────────────────────────────────┐\n│ kspec vdev — Compliance Report          │\n├─────────────────────────────────────────┤\n│ Cluster: kind-kspec                     │\n│ Spec: production-spec v1.0              │\n│ Scanned: 2026-01-03 21:30:45 UTC        │\n└─────────────────────────────────────────┘\n\nCOMPLIANCE: 3/6 checks passed (50%)\n\n[CRITICAL] FAILURES (2)\n─────────────────────────\n[no-privileged-containers] Privileged containers detected in 2 pods\n  Fix: Remove securityContext.privileged=true from pod specs\n\n[require-non-root-user] 3 pods running as root\n  Fix: Set securityContext.runAsNonRoot=true\n\n[FAIL] FAILURES (1)\n─────────────────────────\n[require-resource-limits] 8 pods missing CPU/memory limits\n  Fix: Add resources.limits and resources.requests\n\n[PASS] PASSED CHECKS (3)\n─────────────────────\n  Pod Security Standards baseline enforced\n  Network policies required and configured\n  HostPath volumes properly restricted\n"
         },
         {
-          "command": "kspec report --last --format sarif",
-          "output": "✓ Generating SARIF 2.1.0 report from last scan\n✓ Writing to kspec-report-20260103.sarif.json\n\nReport summary:\n  • Total findings: 13\n  • Critical: 2 (privileged containers in default/admin-pod, kube-system/debug)\n  • High: 0\n  • Medium: 11 (missing resource limits, non-root user violations)\n\nUpload to GitHub Code Scanning:\n  gh api repos/cloudcwfranck/kspec/code-scanning/sarifs \\\n    -F sarif=@kspec-report-20260103.sarif.json"
+          "command": "kspec scan --spec specs/production.yaml --output sarif > compliance-report.sarif",
+          "output": "Scanning cluster...\n✓ SARIF report written to compliance-report.sarif\n\nUpload to GitHub Code Scanning:\n  gh api repos/owner/repo/code-scanning/sarifs -F sarif=@compliance-report.sarif"
         }
       ],
       "docsLink": "https://github.com/cloudcwfranck/kspec#quickstart-5-minutes"
@@ -29,16 +29,16 @@
       "description": "Pain: \"I need guardrails, not a manual checklist\" → Fix: Automated policy generation & enforcement",
       "steps": [
         {
-          "command": "kspec enforce --spec specs/examples/strict.yaml --mode enforce",
-          "output": "⠿ Loading spec: specs/examples/strict.yaml\n✓ Validating policy definitions\n✓ Connecting to cluster: kind-kspec\n\nGenerating Kyverno policies:\n  → kspec-psa-baseline (pod security standards)\n  → kspec-no-privileged (block privileged containers)\n  → kspec-require-limits (enforce CPU/memory limits)\n  → kspec-non-root-user (require non-root execution)\n\n⠿ Creating ClusterPolicies...\n✓ kspec-psa-baseline created\n✓ kspec-no-privileged created\n✓ kspec-require-limits created\n✓ kspec-non-root-user created\n\n✓ Admission webhooks configured\n✓ Policies are now enforcing\n\nEnforcement active! New pods will be validated against these policies."
+          "command": "kspec enforce --spec specs/production.yaml --dry-run",
+          "output": "Generating policies from spec...\n\n┌─────────────────────────────────────────┐\n│ kspec vdev — Policy Enforcement         │\n└─────────────────────────────────────────┘\n\n[OK] Kyverno Status: Installed\n     Version: v1.11.4\n\nPolicies Generated: 4\nMode: Dry-run (policies not deployed)\n\nGenerated Policies:\n───────────────────\n  1. kspec-psa-baseline\n  2. kspec-no-privileged\n  3. kspec-require-limits\n  4. kspec-non-root-user\n\nNext Steps:\n───────────\n1. Review the generated policies above\n2. Run: kspec enforce --spec specs/production.yaml (without --dry-run) to deploy\n"
         },
         {
-          "command": "kubectl get clusterpolicy | grep kspec",
-          "output": "kspec-non-root-user      Enforce    Background,Validate   Ready   12s\nkspec-no-privileged      Enforce    Background,Validate   Ready   12s\nkspec-psa-baseline       Enforce    Background,Validate   Ready   13s\nkspec-require-limits     Enforce    Background,Validate   Ready   12s"
+          "command": "kspec enforce --spec specs/production.yaml",
+          "output": "Generating policies from spec...\n\n┌─────────────────────────────────────────┐\n│ kspec vdev — Policy Enforcement         │\n└─────────────────────────────────────────┘\n\n[OK] Kyverno Status: Installed\n     Version: v1.11.4\n\nPolicies Generated: 4\nPolicies Applied: 4\n\nGenerated Policies:\n───────────────────\n  1. kspec-psa-baseline\n  2. kspec-no-privileged\n  3. kspec-require-limits\n  4. kspec-non-root-user\n\n[OK] Policies successfully deployed\n\nVerify policies:\n  kubectl get clusterpolicies\n  kubectl describe clusterpolicy kspec-no-privileged\n"
         },
         {
-          "command": "kubectl run test --image=nginx --privileged=true",
-          "output": "Error from server: admission webhook \"validate.kyverno.svc-fail\" denied the request: \n\nresource Pod/default/test was blocked due to the following policies\n\nkspec-no-privileged:\n  no-privileged-containers: validation error: Privileged containers are not allowed.\n  Spec.containers[0].securityContext.privileged must be false or undefined.\n  \n✗ Policy enforcement working as expected!"
+          "command": "kubectl get clusterpolicies",
+          "output": "NAME                     BACKGROUND   VALIDATE ACTION   READY   AGE\nkspec-non-root-user      true         Enforce           True    5s\nkspec-no-privileged      true         Enforce           True    6s\nkspec-psa-baseline       true         Enforce           True    6s\nkspec-require-limits     true         Enforce           True    5s"
         }
       ],
       "docsLink": "https://github.com/cloudcwfranck/kspec/blob/main/docs/API_REFERENCE.md"
@@ -49,16 +49,16 @@
       "description": "Pain: \"We were compliant last week... now we aren't\" → Fix: Continuous drift detection & remediation",
       "steps": [
         {
-          "command": "kspec drift detect --spec specs/examples/strict.yaml",
-          "output": "⠿ Loading spec: specs/examples/strict.yaml\n⠿ Comparing cluster state to desired configuration...\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠ Drift Detected\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPolicy: kspec-no-privileged\n  Status: MODIFIED\n  Change: spec.rules[0].validate.message was changed\n  \n  - \"Privileged containers are not allowed\"\n  + \"[CUSTOM] No privileged pods allowed\"\n  \n  Last modified: 2 hours ago\n  Modified by: user@example.com\n\nPolicy: kspec-require-limits\n  Status: DELETED\n  Last seen: 45 minutes ago\n  Impact: Resource limit enforcement is now DISABLED\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSummary:\n  Drifted policies: 2\n  Security impact: HIGH (missing resource limits)\n  \nRecommended action:\n  kspec drift remediate --spec specs/examples/strict.yaml"
+          "command": "kspec drift detect --spec specs/production.yaml",
+          "output": "\n┌─────────────────────────────────────────┐\n│ kspec vdev — Drift Detection            │\n└─────────────────────────────────────────┘\n\n[DRIFT] Detected 2 drift events\nSeverity: HIGH\n\nPolicy Drift: 2\n\nDrift Events:\n─────────────\n[HIGH] ClusterPolicy/kspec-require-limits: Policy deleted from cluster\n[MEDIUM] ClusterPolicy/kspec-no-privileged: Policy modified (message changed)\n"
         },
         {
-          "command": "kspec drift remediate --spec specs/examples/strict.yaml --dry-run",
-          "output": "⠿ Dry-run mode (no changes will be applied)\n\nPlanned actions:\n  1. Restore policy: kspec-require-limits\n     Action: Re-create from spec\n     \n  2. Revert policy: kspec-no-privileged\n     Action: Reset validation message to original value\n     \nTo apply these changes, run:\n  kspec drift remediate --spec specs/examples/strict.yaml"
+          "command": "kspec drift remediate --spec specs/production.yaml --dry-run",
+          "output": "\n┌─────────────────────────────────────────┐\n│ kspec vdev — Drift Remediation          │\n└─────────────────────────────────────────┘\n\nMode: Dry-run (no changes applied)\n\nRemediation Summary:\n───────────────────\nTotal events: 2\nRemediated: 0\nFailed: 0\nManual required: 0\n\nPlanned Actions:\n  [OK] ClusterPolicy/kspec-require-limits: Would create missing policy\n  [OK] ClusterPolicy/kspec-no-privileged: Would restore original validation message\n\nRun without --dry-run to apply changes.\n"
         },
         {
-          "command": "kspec drift remediate --spec specs/examples/strict.yaml",
-          "output": "⠿ Remediating drift...\n\n→ Restoring kspec-require-limits\n  ✓ Policy re-created from spec\n  ✓ Admission webhook updated\n  \n→ Reverting kspec-no-privileged\n  ✓ Validation message restored\n  ✓ Policy hash updated\n  \n✓ Drift remediation complete!\n✓ Cluster is now compliant with specs/examples/strict.yaml\n\nNext: Set up monitoring with 'kspec drift watch' to detect future drift"
+          "command": "kspec drift remediate --spec specs/production.yaml",
+          "output": "\n┌─────────────────────────────────────────┐\n│ kspec vdev — Drift Remediation          │\n└─────────────────────────────────────────┘\n\nRemediation Summary:\n───────────────────\nTotal events: 2\nRemediated: 2\nFailed: 0\nManual required: 0\n\nRemediated:\n  [OK] ClusterPolicy/kspec-require-limits: Created missing policy\n  [OK] ClusterPolicy/kspec-no-privileged: Restored original validation message\n\n✓ All drift remediated successfully\n"
         }
       ],
       "docsLink": "https://github.com/cloudcwfranck/kspec/blob/main/docs/DRIFT_DETECTION.md"
@@ -69,12 +69,16 @@
       "description": "Pain: \"Auditors want proof\" → Fix: Export evidence in standard formats (OSCAL, SARIF, Markdown)",
       "steps": [
         {
-          "command": "kspec report --last --format oscal --output /tmp/oscal.json",
-          "output": "⠿ Generating OSCAL assessment report\n✓ Loading compliance framework: NIST 800-53 rev5\n✓ Mapping kspec findings to controls\n✓ Analyzing 23 resources across 5 namespaces\n\nWritten to: /tmp/oscal.json\n\nReport statistics:\n  Controls assessed: 47\n  Controls satisfied: 32 (68.1%)\n  Controls partially-satisfied: 11 (23.4%)\n  Controls not-satisfied: 4 (8.5%)\n  \n  Lines: 1,847\n  Size: 94.3 KB"
+          "command": "kspec scan --spec specs/production.yaml --output oscal > oscal-assessment.json",
+          "output": "Scanning cluster...\n✓ OSCAL assessment report written to oscal-assessment.json\n\nReport Summary:\n  Controls assessed: 47 (NIST 800-53 rev5)\n  Controls satisfied: 32 (68.1%)\n  Controls partially-satisfied: 11 (23.4%)\n  Controls not-satisfied: 4 (8.5%)\n  File size: 94.3 KB"
         },
         {
-          "command": "kspec report --last --format markdown",
-          "output": "# kspec Compliance Report\n**Generated:** 2026-01-03 14:32:17 UTC  \n**Cluster:** kind-kspec  \n**Spec:** specs/examples/strict.yaml\n\n## Executive Summary\n- **Overall Compliance:** 68.1%\n- **Critical Issues:** 2\n- **High Issues:** 0\n- **Medium Issues:** 11\n\n## Findings\n\n### Critical\n1. **Privileged containers detected**\n   - Resource: default/admin-pod\n   - Policy: kspec-no-privileged\n   - Recommendation: Remove securityContext.privileged=true\n   \n2. **Privileged container in system namespace**\n   - Resource: kube-system/debug\n   - Policy: kspec-no-privileged\n   - Recommendation: Use non-privileged debugging alternatives\n\n### Medium\n3-13. **Missing resource limits** (8 pods)\n   - Policy: kspec-require-limits\n   - Recommendation: Add requests/limits for CPU and memory\n\n---\n✓ Report saved to: kspec-compliance-20260103.md"
+          "command": "kspec scan --spec specs/production.yaml --output markdown > COMPLIANCE.md",
+          "output": "Scanning cluster...\n✓ Markdown compliance report written to COMPLIANCE.md\n\nReport includes:\n  • Executive summary with compliance score\n  • Critical findings with remediation steps\n  • Failed checks by severity\n  • Passed checks summary\n  • Cluster metadata and scan timestamp"
+        },
+        {
+          "command": "head -20 COMPLIANCE.md",
+          "output": "# kspec Compliance Report\n\n**Generated:** 2026-01-03 21:35:42 UTC  \n**Cluster:** kind-kspec  \n**Spec:** production-spec v1.0  \n\n## Executive Summary\n\n- **Overall Compliance:** 50%\n- **Critical Issues:** 2\n- **High Issues:** 0\n- **Medium Issues:** 1\n\n## Critical Findings\n\n### 1. Privileged containers detected\n- **Resource:** default/admin-pod, kube-system/debug\n- **Policy:** kspec-no-privileged\n- **Severity:** CRITICAL\n- **Recommendation:** Remove securityContext.privileged=true"
         }
       ],
       "docsLink": "https://github.com/cloudcwfranck/kspec/blob/main/docs/API_REFERENCE.md#compliancereport"
@@ -82,19 +86,19 @@
     {
       "id": "metrics",
       "label": "Metrics",
-      "description": "Pain: \"I need to monitor this continuously\" → Fix: Prometheus metrics + Grafana dashboards",
+      "description": "Pain: \"I need to monitor this continuously\" → Fix: Prometheus metrics exposed by kspec-operator",
       "steps": [
         {
-          "command": "kubectl -n kspec-system port-forward svc/kspec-metrics 9090:9090 &",
-          "output": "[1] 28471\nForwarding from 127.0.0.1:9090 -> 9090\nForwarding from [::1]:9090 -> 9090"
+          "command": "kubectl -n kspec-system port-forward deploy/kspec-operator 8080:8080 &",
+          "output": "[1] 12847\nForwarding from 127.0.0.1:8080 -> 8080\nForwarding from [::1]:8080 -> 8080"
         },
         {
-          "command": "curl -s http://localhost:9090/metrics | grep kspec_",
-          "output": "# HELP kspec_compliance_score Current compliance score (0-100)\n# TYPE kspec_compliance_score gauge\nkspec_compliance_score{cluster=\"kind-kspec\",spec=\"strict\"} 68.1\n\n# HELP kspec_drift_detected_total Total number of drifted policies\n# TYPE kspec_drift_detected_total counter\nkspec_drift_detected_total{cluster=\"kind-kspec\"} 2\n\n# HELP kspec_policy_violations Number of policy violations by severity\n# TYPE kspec_policy_violations gauge\nkspec_policy_violations{severity=\"critical\"} 2\nkspec_policy_violations{severity=\"high\"} 0\nkspec_policy_violations{severity=\"medium\"} 11\n\n# HELP kspec_scan_duration_seconds Time to complete compliance scan\n# TYPE kspec_scan_duration_seconds histogram\nkspec_scan_duration_seconds_bucket{le=\"1\"} 34\nkspec_scan_duration_seconds_bucket{le=\"5\"} 89\nkspec_scan_duration_seconds_bucket{le=\"10\"} 100"
+          "command": "curl -s http://localhost:8080/metrics | grep kspec_compliance",
+          "output": "# HELP kspec_compliance_checks_total Total number of compliance checks performed per cluster\n# TYPE kspec_compliance_checks_total gauge\nkspec_compliance_checks_total{cluster_name=\"kind-kspec\",cluster_spec=\"production-spec\",cluster_uid=\"abc123\"} 6\n\n# HELP kspec_compliance_checks_passed Number of compliance checks passed per cluster\n# TYPE kspec_compliance_checks_passed gauge\nkspec_compliance_checks_passed{cluster_name=\"kind-kspec\",cluster_spec=\"production-spec\",cluster_uid=\"abc123\"} 3\n\n# HELP kspec_compliance_checks_failed Number of compliance checks failed per cluster\n# TYPE kspec_compliance_checks_failed gauge\nkspec_compliance_checks_failed{cluster_name=\"kind-kspec\",cluster_spec=\"production-spec\",cluster_uid=\"abc123\"} 3\n\n# HELP kspec_compliance_score Compliance score percentage (0-100) per cluster\n# TYPE kspec_compliance_score gauge\nkspec_compliance_score{cluster_name=\"kind-kspec\",cluster_spec=\"production-spec\",cluster_uid=\"abc123\"} 50"
         },
         {
-          "command": "echo 'Grafana dashboard: http://localhost:3000/d/kspec-compliance'",
-          "output": "Grafana dashboard: http://localhost:3000/d/kspec-compliance\n\nDashboard: kspec Compliance Monitoring\n\nPanels:\n  • Compliance Score Over Time (graph)\n  • Policy Violations by Severity (bar chart)  \n  • Drift Detection Events (table)\n  • Top Non-Compliant Resources (list)\n  • Scan Duration P95/P99 (stat)\n  \nAlerts:\n  ✓ compliance_below_threshold (triggers at <70%)\n  ✓ critical_violations_detected (triggers at >0)\n  ✓ drift_detected (Slack notification)\n\nView live metrics at http://localhost:3000"
+          "command": "curl -s http://localhost:8080/metrics | grep kspec_drift",
+          "output": "# HELP kspec_drift_detected Whether drift is currently detected (1=yes, 0=no)\n# TYPE kspec_drift_detected gauge\nkspec_drift_detected{cluster_name=\"kind-kspec\",cluster_spec=\"production-spec\",cluster_uid=\"abc123\"} 1\n\n# HELP kspec_drift_events_total Total number of drift events detected per cluster\n# TYPE kspec_drift_events_total gauge\nkspec_drift_events_total{cluster_name=\"kind-kspec\",cluster_spec=\"production-spec\",cluster_uid=\"abc123\"} 2\n\n# HELP kspec_drift_events_by_type Number of drift events by type per cluster\n# TYPE kspec_drift_events_by_type gauge\nkspec_drift_events_by_type{cluster_name=\"kind-kspec\",cluster_spec=\"production-spec\",cluster_uid=\"abc123\",drift_kind=\"policy\"} 2"
         }
       ],
       "docsLink": "https://github.com/cloudcwfranck/kspec/blob/main/docs/WEBHOOKS.md"
