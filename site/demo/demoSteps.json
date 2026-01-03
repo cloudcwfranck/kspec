@@ -13,11 +13,11 @@
           "output": "kind-kspec"
         },
         {
-          "command": "kspec scan --spec specs/production.yaml",
+          "command": "kspec scan --spec specs/strict.yaml",
           "output": "Scanning cluster...\n\n┌─────────────────────────────────────────┐\n│ kspec vdev — Compliance Report          │\n├─────────────────────────────────────────┤\n│ Cluster: kind-kspec                     │\n│ Spec: production-spec v1.0              │\n│ Scanned: 2026-01-03 21:30:45 UTC        │\n└─────────────────────────────────────────┘\n\nCOMPLIANCE: 3/6 checks passed (50%)\n\n[CRITICAL] FAILURES (2)\n─────────────────────────\n[no-privileged-containers] Privileged containers detected in 2 pods\n  Fix: Remove securityContext.privileged=true from pod specs\n\n[require-non-root-user] 3 pods running as root\n  Fix: Set securityContext.runAsNonRoot=true\n\n[FAIL] FAILURES (1)\n─────────────────────────\n[require-resource-limits] 8 pods missing CPU/memory limits\n  Fix: Add resources.limits and resources.requests\n\n[PASS] PASSED CHECKS (3)\n─────────────────────\n  Pod Security Standards baseline enforced\n  Network policies required and configured\n  HostPath volumes properly restricted\n"
         },
         {
-          "command": "kspec scan --spec specs/production.yaml --output sarif > compliance-report.sarif",
+          "command": "kspec scan --spec specs/strict.yaml --output sarif > compliance-report.sarif",
           "output": "Scanning cluster...\n✓ SARIF report written to compliance-report.sarif\n\nUpload to GitHub Code Scanning:\n  gh api repos/owner/repo/code-scanning/sarifs -F sarif=@compliance-report.sarif"
         }
       ],
@@ -29,11 +29,11 @@
       "description": "Pain: \"I need guardrails, not a manual checklist\" → Fix: Automated policy generation & enforcement",
       "steps": [
         {
-          "command": "kspec enforce --spec specs/production.yaml --dry-run",
-          "output": "Generating policies from spec...\n\n┌─────────────────────────────────────────┐\n│ kspec vdev — Policy Enforcement         │\n└─────────────────────────────────────────┘\n\n[OK] Kyverno Status: Installed\n     Version: v1.11.4\n\nPolicies Generated: 4\nMode: Dry-run (policies not deployed)\n\nGenerated Policies:\n───────────────────\n  1. kspec-psa-baseline\n  2. kspec-no-privileged\n  3. kspec-require-limits\n  4. kspec-non-root-user\n\nNext Steps:\n───────────\n1. Review the generated policies above\n2. Run: kspec enforce --spec specs/production.yaml (without --dry-run) to deploy\n"
+          "command": "kspec enforce --spec specs/strict.yaml --dry-run",
+          "output": "Generating policies from spec...\n\n┌─────────────────────────────────────────┐\n│ kspec vdev — Policy Enforcement         │\n└─────────────────────────────────────────┘\n\n[OK] Kyverno Status: Installed\n     Version: v1.11.4\n\nPolicies Generated: 4\nMode: Dry-run (policies not deployed)\n\nGenerated Policies:\n───────────────────\n  1. kspec-psa-baseline\n  2. kspec-no-privileged\n  3. kspec-require-limits\n  4. kspec-non-root-user\n\nNext Steps:\n───────────\n1. Review the generated policies above\n2. Run: kspec enforce --spec specs/strict.yaml (without --dry-run) to deploy\n"
         },
         {
-          "command": "kspec enforce --spec specs/production.yaml",
+          "command": "kspec enforce --spec specs/strict.yaml",
           "output": "Generating policies from spec...\n\n┌─────────────────────────────────────────┐\n│ kspec vdev — Policy Enforcement         │\n└─────────────────────────────────────────┘\n\n[OK] Kyverno Status: Installed\n     Version: v1.11.4\n\nPolicies Generated: 4\nPolicies Applied: 4\n\nGenerated Policies:\n───────────────────\n  1. kspec-psa-baseline\n  2. kspec-no-privileged\n  3. kspec-require-limits\n  4. kspec-non-root-user\n\n[OK] Policies successfully deployed\n\nVerify policies:\n  kubectl get clusterpolicies\n  kubectl describe clusterpolicy kspec-no-privileged\n"
         },
         {
@@ -49,15 +49,15 @@
       "description": "Pain: \"We were compliant last week... now we aren't\" → Fix: Continuous drift detection & remediation",
       "steps": [
         {
-          "command": "kspec drift detect --spec specs/production.yaml",
+          "command": "kspec drift detect --spec specs/strict.yaml",
           "output": "\n┌─────────────────────────────────────────┐\n│ kspec vdev — Drift Detection            │\n└─────────────────────────────────────────┘\n\n[DRIFT] Detected 2 drift events\nSeverity: HIGH\n\nPolicy Drift: 2\n\nDrift Events:\n─────────────\n[HIGH] ClusterPolicy/kspec-require-limits: Policy deleted from cluster\n[MEDIUM] ClusterPolicy/kspec-no-privileged: Policy modified (message changed)\n"
         },
         {
-          "command": "kspec drift remediate --spec specs/production.yaml --dry-run",
+          "command": "kspec drift remediate --spec specs/strict.yaml --dry-run",
           "output": "\n┌─────────────────────────────────────────┐\n│ kspec vdev — Drift Remediation          │\n└─────────────────────────────────────────┘\n\nMode: Dry-run (no changes applied)\n\nRemediation Summary:\n───────────────────\nTotal events: 2\nRemediated: 0\nFailed: 0\nManual required: 0\n\nPlanned Actions:\n  [OK] ClusterPolicy/kspec-require-limits: Would create missing policy\n  [OK] ClusterPolicy/kspec-no-privileged: Would restore original validation message\n\nRun without --dry-run to apply changes.\n"
         },
         {
-          "command": "kspec drift remediate --spec specs/production.yaml",
+          "command": "kspec drift remediate --spec specs/strict.yaml",
           "output": "\n┌─────────────────────────────────────────┐\n│ kspec vdev — Drift Remediation          │\n└─────────────────────────────────────────┘\n\nRemediation Summary:\n───────────────────\nTotal events: 2\nRemediated: 2\nFailed: 0\nManual required: 0\n\nRemediated:\n  [OK] ClusterPolicy/kspec-require-limits: Created missing policy\n  [OK] ClusterPolicy/kspec-no-privileged: Restored original validation message\n\n✓ All drift remediated successfully\n"
         }
       ],
@@ -69,11 +69,11 @@
       "description": "Pain: \"Auditors want proof\" → Fix: Export evidence in standard formats (OSCAL, SARIF, Markdown)",
       "steps": [
         {
-          "command": "kspec scan --spec specs/production.yaml --output oscal > oscal-assessment.json",
+          "command": "kspec scan --spec specs/strict.yaml --output oscal > oscal-assessment.json",
           "output": "Scanning cluster...\n✓ OSCAL assessment report written to oscal-assessment.json\n\nReport Summary:\n  Controls assessed: 47 (NIST 800-53 rev5)\n  Controls satisfied: 32 (68.1%)\n  Controls partially-satisfied: 11 (23.4%)\n  Controls not-satisfied: 4 (8.5%)\n  File size: 94.3 KB"
         },
         {
-          "command": "kspec scan --spec specs/production.yaml --output markdown > COMPLIANCE.md",
+          "command": "kspec scan --spec specs/strict.yaml --output markdown > COMPLIANCE.md",
           "output": "Scanning cluster...\n✓ Markdown compliance report written to COMPLIANCE.md\n\nReport includes:\n  • Executive summary with compliance score\n  • Critical findings with remediation steps\n  • Failed checks by severity\n  • Passed checks summary\n  • Cluster metadata and scan timestamp"
         },
         {

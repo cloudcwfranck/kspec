@@ -1,4 +1,4 @@
-{"version":2,"width":120,"height":30,"timestamp":1767479859,"env":{"SHELL":"/bin/bash","TERM":"xterm-256color"},"title":"kspec metrics demo","idle_time_limit":2}
+{"version":2,"width":120,"height":30,"timestamp":1767480677,"env":{"SHELL":"/bin/bash","TERM":"xterm-256color"},"title":"kspec metrics demo","idle_time_limit":2}
 [0.5,"o","\u001b[32m(kind-kspec)\u001b[0m franck@csengineering$ "]
 [1.5,"o","k"]
 [1.6,"o","u"]
