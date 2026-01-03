@@ -19,18 +19,18 @@ echo "Detecting configuration drift..."
 echo ""
 
 # Detect drift
-./kspec drift detect --spec "$SPEC_FILE" || true
+../../../kspec drift detect --spec "$SPEC_FILE" || true
 
 echo ""
 echo "Previewing remediation (dry-run)..."
 echo ""
 
 # Preview remediation
-./kspec drift remediate --spec "$SPEC_FILE" --dry-run || true
+../../../kspec drift remediate --spec "$SPEC_FILE" --dry-run || true
 
 echo ""
 echo "Applying remediation..."
 echo ""
 
 # Apply remediation
-./kspec drift remediate --spec "$SPEC_FILE" || true
+../../../kspec drift remediate --spec "$SPEC_FILE" || true

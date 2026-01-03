@@ -20,7 +20,7 @@ echo "Generating OSCAL assessment report..."
 echo ""
 
 # Generate OSCAL report
-./kspec scan --spec "$SPEC_FILE" --output oscal > oscal-assessment.json
+../../../kspec scan --spec "$SPEC_FILE" --output oscal > oscal-assessment.json
 
 echo "✓ OSCAL assessment report written to oscal-assessment.json"
 echo ""
@@ -33,7 +33,7 @@ echo "Generating Markdown compliance report..."
 echo ""
 
 # Generate Markdown report
-./kspec scan --spec "$SPEC_FILE" --output markdown > COMPLIANCE.md
+../../../kspec scan --spec "$SPEC_FILE" --output markdown > COMPLIANCE.md
 
 echo "✓ Markdown compliance report written to COMPLIANCE.md"
 echo ""

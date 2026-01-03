@@ -20,14 +20,14 @@ echo "Generating policies (dry-run)..."
 echo ""
 
 # Preview policies without deploying
-./kspec enforce --spec "$SPEC_FILE" --dry-run
+../../../kspec enforce --spec "$SPEC_FILE" --dry-run
 
 echo ""
 echo "Deploying policies to cluster..."
 echo ""
 
 # Deploy policies
-./kspec enforce --spec "$SPEC_FILE"
+../../../kspec enforce --spec "$SPEC_FILE"
 
 echo ""
 echo "Verifying deployed policies..."
