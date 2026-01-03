@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import DemoTerminal from '@/demo/DemoTerminal';
+import AsciinemaDemo from '@/components/AsciinemaDemo';
 
 export default function HomePage() {
   return (
@@ -159,7 +159,7 @@ spec:
               Interactive demo showing scan, enforce, drift detection, reports, and metrics
             </p>
           </div>
-          <DemoTerminal />
+          <AsciinemaDemo />
         </div>
       </section>
 
