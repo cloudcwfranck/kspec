@@ -50,9 +50,11 @@ describe('Demo Steps Data', () => {
       });
     });
 
-    it('all docsLinks start with /docs/', () => {
+    it('all docsLinks are valid paths (internal /docs/ or external GitHub)', () => {
+      const validDocsLinkRegex = /^(\/docs\/.*|https:\/\/github\.com\/.*)$/;
+
       demoData.tabs.forEach((tab, index) => {
-        expect(tab.docsLink, `Tab ${index} docsLink doesn't start with /docs/`).toMatch(/^\/docs\//);
+        expect(tab.docsLink, `Tab ${index} docsLink '${tab.docsLink}' is not a valid docs path`).toMatch(validDocsLinkRegex);
       });
     });
 

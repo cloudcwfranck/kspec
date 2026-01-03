@@ -23,10 +23,22 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock clipboard API
-Object.assign(navigator, {
-  clipboard: {
+Object.defineProperty(navigator, 'clipboard', {
+  configurable: true,
+  value: {
     writeText: async (text: string) => {
       return Promise.resolve();
     },
   },
 });
+
+// Mock IntersectionObserver for auto-scroll testing
+global.IntersectionObserver = class IntersectionObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  takeRecords() {
+    return [];
+  }
+  unobserve() {}
+} as any;
