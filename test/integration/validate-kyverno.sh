@@ -310,7 +310,6 @@ if wait_for_webhooks "validatingwebhookconfigurations" 1 300; then
     VWC_TOTAL=0
     while IFS= read -r name; do
         [ -z "$name" ] && continue
-        local count
         count=$(kubectl get validatingwebhookconfigurations "$name" -o json 2>/dev/null \
             | jq '.webhooks | length' 2>/dev/null || echo "0")
         count=$(sanitize_int "$count")
@@ -337,7 +336,6 @@ if wait_for_webhooks "mutatingwebhookconfigurations" 1 300; then
     MWC_TOTAL=0
     while IFS= read -r name; do
         [ -z "$name" ] && continue
-        local count
         count=$(kubectl get mutatingwebhookconfigurations "$name" -o json 2>/dev/null \
             | jq '.webhooks | length' 2>/dev/null || echo "0")
         count=$(sanitize_int "$count")
