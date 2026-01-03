@@ -96,6 +96,7 @@ jobs:
       - name: Validate generated artifacts
         run: |
           echo "=== Verifying Generated Files ==="
+          cd site/demo/scripts
           ls -lh compliance-report.sarif oscal-assessment.json COMPLIANCE.md
 
           # Verify SARIF is valid JSON
@@ -113,6 +114,6 @@ jobs:
         with:
           name: demo-outputs
           path: |
-            compliance-report.sarif
-            oscal-assessment.json
-            COMPLIANCE.md
+            site/demo/scripts/compliance-report.sarif
+            site/demo/scripts/oscal-assessment.json
+            site/demo/scripts/COMPLIANCE.md
