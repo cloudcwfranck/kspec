@@ -474,8 +474,8 @@ export default function DemoTerminal() {
             </div>
           )}
 
-          {/* Idle cursor */}
-          {!isPlaying && !isTypingCommand && lines.length > 0 && (
+          {/* Idle cursor - show when not playing or when finished */}
+          {!isPlaying && !isTypingCommand && (
             <div className="flex items-center gap-1.5 mt-2">
               <span className="text-emerald-400">{prompt}</span>
               <span className="animate-pulse text-emerald-400">▊</span>
