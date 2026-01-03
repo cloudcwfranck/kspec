@@ -21,7 +21,7 @@
           "output": "✓ Generating SARIF 2.1.0 report from last scan\n✓ Writing to kspec-report-20260103.sarif.json\n\nReport summary:\n  • Total findings: 13\n  • Critical: 2 (privileged containers in default/admin-pod, kube-system/debug)\n  • High: 0\n  • Medium: 11 (missing resource limits, non-root user violations)\n\nUpload to GitHub Code Scanning:\n  gh api repos/cloudcwfranck/kspec/code-scanning/sarifs \\\n    -F sarif=@kspec-report-20260103.sarif.json"
         }
       ],
-      "docsLink": "https://github.com/cloudcwfranck/kspec#quick-start"
+      "docsLink": "https://github.com/cloudcwfranck/kspec#quickstart-5-minutes"
     },
     {
       "id": "enforce",
@@ -77,7 +77,7 @@
           "output": "# kspec Compliance Report\n**Generated:** 2026-01-03 14:32:17 UTC  \n**Cluster:** kind-kspec  \n**Spec:** specs/examples/strict.yaml\n\n## Executive Summary\n- **Overall Compliance:** 68.1%\n- **Critical Issues:** 2\n- **High Issues:** 0\n- **Medium Issues:** 11\n\n## Findings\n\n### Critical\n1. **Privileged containers detected**\n   - Resource: default/admin-pod\n   - Policy: kspec-no-privileged\n   - Recommendation: Remove securityContext.privileged=true\n   \n2. **Privileged container in system namespace**\n   - Resource: kube-system/debug\n   - Policy: kspec-no-privileged\n   - Recommendation: Use non-privileged debugging alternatives\n\n### Medium\n3-13. **Missing resource limits** (8 pods)\n   - Policy: kspec-require-limits\n   - Recommendation: Add requests/limits for CPU and memory\n\n---\n✓ Report saved to: kspec-compliance-20260103.md"
         }
       ],
-      "docsLink": "https://github.com/cloudcwfranck/kspec/blob/main/docs/API_REFERENCE.md#reporting"
+      "docsLink": "https://github.com/cloudcwfranck/kspec/blob/main/docs/API_REFERENCE.md#compliancereport"
     },
     {
       "id": "metrics",
