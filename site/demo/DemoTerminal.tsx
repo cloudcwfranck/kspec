@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Link from 'next/link';
 import demoData from './demoSteps.json';
 
 interface DemoStep {
@@ -320,13 +319,26 @@ export default function DemoTerminal() {
       {/* Tab Description */}
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="text-gray-600 text-sm">{currentTab.description}</p>
-        <Link
+        {/*
+          DOCS LINKING STRATEGY:
+          Links point to GitHub docs (cloudcwfranck/kspec/docs/) to avoid 404s.
+          Each tab links to its most relevant doc:
+          - Scan → README quick start
+          - Enforce → API_REFERENCE.md
+          - Drift → DRIFT_DETECTION.md
+          - Reports → API_REFERENCE.md#reporting
+          - Metrics → WEBHOOKS.md
+          Opens in new tab for better UX (no navigation away from demo).
+        */}
+        <a
           href={currentTab.docsLink}
-          className="text-gray-900 hover:text-gray-700 font-medium text-sm whitespace-nowrap transition-colors"
-          aria-label={`View documentation for ${currentTab.label}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-900 hover:text-gray-700 font-medium text-sm whitespace-nowrap transition-colors inline-flex items-center gap-1"
+          aria-label={`View documentation for ${currentTab.label} (opens in new tab)`}
         >
           View docs →
-        </Link>
+        </a>
       </div>
 
       {/* Terminal Window */}

@@ -60,8 +60,8 @@
           },
           "docsLink": {
             "type": "string",
-            "pattern": "^/docs/.*$",
-            "description": "Link to relevant documentation page"
+            "pattern": "^(/docs/.*|https://github\\.com/.*)$",
+            "description": "Link to relevant documentation page (internal /docs/ route or external GitHub URL)"
           }
         }
       }

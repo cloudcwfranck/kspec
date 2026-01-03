@@ -40,9 +40,10 @@ try {
         errors.push(`Tab ${index}: Missing or empty description`);
       }
 
-      // Validate docs link
-      if (!tab.docsLink || !tab.docsLink.startsWith('/docs/')) {
-        errors.push(`Tab ${index}: Invalid docsLink '${tab.docsLink}' (must start with /docs/)`);
+      // Validate docs link (allow internal /docs/ or external GitHub URLs)
+      const docsLinkRegex = /^(\/docs\/.*|https:\/\/github\.com\/.*)$/;
+      if (!tab.docsLink || !docsLinkRegex.test(tab.docsLink)) {
+        errors.push(`Tab ${index}: Invalid docsLink '${tab.docsLink}' (must start with /docs/ or be a GitHub URL)`);
       }
 
       // Validate steps
