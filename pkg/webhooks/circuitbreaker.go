@@ -1,9 +1,12 @@
 package webhooks
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/cloudcwfranck/kspec/pkg/alerts"
 	"github.com/cloudcwfranck/kspec/pkg/metrics"
 )
 
@@ -38,6 +41,9 @@ type CircuitBreaker struct {
 	// Windowed metrics (last N requests)
 	requestWindow []requestResult
 	windowSize    int
+
+	// AlertManager for sending alerts
+	alertManager *alerts.Manager
 }
 
 type requestResult struct {
@@ -46,8 +52,9 @@ type requestResult struct {
 }
 
 // NewCircuitBreaker creates a new circuit breaker
-func NewCircuitBreaker() *CircuitBreaker {
+func NewCircuitBreaker(alertManager *alerts.Manager) *CircuitBreaker {
 	return &CircuitBreaker{
+		alertManager:  alertManager,
 		windowSize:    100, // Track last 100 requests
 		requestWindow: make([]requestResult, 0, 100),
 		lastResetTime: time.Now(),
@@ -194,8 +201,9 @@ func (cb *CircuitBreaker) checkTrip() {
 
 	errorRate := cb.calculateErrorRate()
 	if errorRate >= ErrorRateThreshold {
-		cb.isTripped = true
-		cb.lastTripTime = time.Now()
+
+		// Send circuit breaker trip alert
+		cb.sendTripAlert(errorRate)
 	}
 }
 
@@ -241,4 +249,36 @@ func (cb *CircuitBreaker) updateMetrics() {
 
 	// Update total requests
 	metrics.CircuitBreakerTotalRequests.Set(float64(cb.totalRequests))
+}
+
+// sendTripAlert sends an alert when the circuit breaker trips
+func (cb *CircuitBreaker) sendTripAlert(errorRate float64) {
+	if cb.alertManager == nil {
+		return
+	}
+
+	alert := alerts.Alert{
+		Level:       alerts.AlertLevelCritical,
+		Title:       "Webhook circuit breaker tripped",
+		Description: fmt.Sprintf("Circuit breaker has tripped due to high error rate (%.1f%%). Webhook validation is now in fail-open mode.", errorRate*100),
+		Source:      "Webhook/CircuitBreaker",
+		EventType:   "CircuitBreakerTripped",
+		Labels: map[string]string{
+			"component": "webhook",
+		},
+		Metadata: map[string]interface{}{
+			"error_rate":       errorRate,
+			"total_requests":   cb.totalRequests,
+			"error_requests":   cb.errorRequests,
+			"success_requests": cb.successRequests,
+		},
+	}
+
+	// Send alert in background to avoid blocking
+	go func() {
+		if err := cb.alertManager.Send(context.Background(), alert); err != nil {
+			// Log error but don't fail (alerting is best-effort)
+			fmt.Printf("Failed to send circuit breaker alert: %v\n", err)
+		}
+	}()
 }

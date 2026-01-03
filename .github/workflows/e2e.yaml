@@ -154,6 +154,29 @@ jobs:
             moderate-scan.json
             strict-scan.json
 
+      - name: Install cert-manager
+        run: |
+          echo "Installing cert-manager (required for Kyverno TLS certificates)..."
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
+
+          # Wait for cert-manager to be ready
+          echo "Waiting for cert-manager deployments..."
+          kubectl wait --for=condition=available --timeout=120s \
+            deployment/cert-manager -n cert-manager
+
+          kubectl wait --for=condition=available --timeout=120s \
+            deployment/cert-manager-webhook -n cert-manager
+
+          kubectl wait --for=condition=available --timeout=120s \
+            deployment/cert-manager-cainjector -n cert-manager
+
+          # Wait for all cert-manager pods to be ready
+          kubectl wait --for=condition=ready pod --all -n cert-manager --timeout=120s
+
+          # Verify cert-manager is working
+          kubectl get pods -n cert-manager
+          echo "[PASS] cert-manager installed and running"
+
       - name: Install Kyverno
         run: |
           echo "Installing Kyverno..."
@@ -205,6 +228,49 @@ jobs:
           kubectl get deployments -n kyverno
           kubectl get pods -n kyverno
           echo "[PASS] Kyverno installed and running"
+
+      - name: Validate Kyverno TLS secrets
+        run: |
+          echo "Validating Kyverno TLS secrets..."
+
+          # Check that TLS secrets exist
+          if ! kubectl get secret -n kyverno kyverno-svc.kyverno.svc.kyverno-tls-pair >/dev/null 2>&1; then
+            echo "[WARN] TLS pair secret not found, waiting..."
+            sleep 10
+          fi
+
+          if ! kubectl get secret -n kyverno kyverno-svc.kyverno.svc.kyverno-tls-ca >/dev/null 2>&1; then
+            echo "[WARN] TLS CA secret not found, waiting..."
+            sleep 10
+          fi
+
+          # List all TLS-related secrets
+          echo "TLS secrets in kyverno namespace:"
+          kubectl get secrets -n kyverno | grep tls || echo "No TLS secrets found yet"
+
+          # Validate TLS certificate
+          if kubectl get secret -n kyverno kyverno-svc.kyverno.svc.kyverno-tls-pair -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -subject 2>/dev/null; then
+            echo "[PASS] TLS certificate is valid"
+            kubectl get secret -n kyverno kyverno-svc.kyverno.svc.kyverno-tls-pair -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -subject -dates
+          else
+            echo "[FAIL] TLS certificate validation failed"
+            exit 1
+          fi
+
+          # Verify webhook service endpoints
+          echo "Webhook service endpoints:"
+          kubectl get endpoints -n kyverno kyverno-svc
+          ENDPOINTS=$(kubectl get endpoints -n kyverno kyverno-svc -o jsonpath='{.subsets[*].addresses[*].ip}' | wc -w)
+          echo "Service has $ENDPOINTS endpoint(s)"
+          [ "$ENDPOINTS" -gt "0" ] || { echo "[FAIL] No service endpoints"; exit 1; }
+
+          echo "[PASS] Kyverno TLS and webhook validation complete"
+
+      - name: Run Kyverno validation script
+        run: |
+          echo "Running comprehensive Kyverno validation..."
+          chmod +x ./test/integration/validate-kyverno.sh
+          ./test/integration/validate-kyverno.sh
 
       - name: Test policy enforcement (dry-run)
         run: |

@@ -1,0 +1,768 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: clusterspecifications.kspec.io
+spec:
+  group: kspec.io
+  names:
+    kind: ClusterSpecification
+    listKind: ClusterSpecificationList
+    plural: clusterspecifications
+    shortNames:
+    - clusterspec
+    - cspec
+    singular: clusterspecification
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.complianceScore
+      name: Score
+      type: integer
+    - jsonPath: .status.lastScanTime
+      name: Last Scan
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterSpecification is the Schema for the clusterspecifications
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClusterSpecificationSpec defines the desired state of ClusterSpecification
+              This reuses the existing SpecFields from pkg/spec/schema.go
+            properties:
+              admission:
+                description: AdmissionSpec defines admission controller requirements.
+                properties:
+                  policies:
+                    description: PolicySpec defines policy requirements.
+                    properties:
+                      minCount:
+                        type: integer
+                      requiredPolicies:
+                        items:
+                          description: RequiredPolicy defines a required network policy.
+                          properties:
+                            description:
+                              type: string
+                            name:
+                              type: string
+                          required:
+                          - description
+                          - name
+                          type: object
+                        type: array
+                    required:
+                    - minCount
+                    type: object
+                  required:
+                    items:
+                      description: AdmissionRequirement defines a required admission
+                        controller.
+                      properties:
+                        minCount:
+                          type: integer
+                        namePattern:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - minCount
+                      - namePattern
+                      - type
+                      type: object
+                    type: array
+                type: object
+              clusterRef:
+                description: |-
+                  ClusterRef is an optional reference to a ClusterTarget defining a remote cluster
+                  If not specified, the operator will scan the local cluster (backwards compatible)
+                properties:
+                  name:
+                    description: Name is the name of the ClusterTarget resource
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace is the namespace of the ClusterTarget resource
+                      If not specified, uses the same namespace as the ClusterSpecification
+                    type: string
+                required:
+                - name
+                type: object
+              compliance:
+                description: ComplianceSpec defines compliance framework mappings.
+                properties:
+                  frameworks:
+                    items:
+                      description: ComplianceFramework defines a compliance framework.
+                      properties:
+                        controls:
+                          items:
+                            description: ComplianceControl defines a compliance control.
+                            properties:
+                              id:
+                                type: string
+                              mappings:
+                                items:
+                                  description: ControlMapping maps a compliance control
+                                    to a check.
+                                  properties:
+                                    check:
+                                      type: string
+                                  required:
+                                  - check
+                                  type: object
+                                type: array
+                              title:
+                                type: string
+                            required:
+                            - id
+                            - title
+                            type: object
+                          type: array
+                        name:
+                          type: string
+                        revision:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                type: object
+              enforcement:
+                description: Enforcement defines enforcement behavior for this specification
+                properties:
+                  autoRemediate:
+                    default: false
+                    description: AutoRemediate enables automatic remediation of violations
+                    type: boolean
+                  enabled:
+                    default: false
+                    description: Enabled controls whether enforcement is active
+                    type: boolean
+                  mode:
+                    default: monitor
+                    description: |-
+                      Mode defines the enforcement mode: monitor, audit, enforce
+                      monitor: no enforcement, only monitoring
+                      audit: log violations but don't block
+                      enforce: actively block violations
+                    enum:
+                    - monitor
+                    - audit
+                    - enforce
+                    type: string
+                type: object
+              kubernetes:
+                description: KubernetesSpec defines Kubernetes version requirements.
+                properties:
+                  excludedVersions:
+                    items:
+                      type: string
+                    type: array
+                  maxVersion:
+                    type: string
+                  minVersion:
+                    type: string
+                required:
+                - maxVersion
+                - minVersion
+                type: object
+              namespaceScope:
+                description: NamespaceScope restricts policy to specific namespaces
+                properties:
+                  excludeNamespaces:
+                    description: ExcludeNamespaces lists namespaces to exclude
+                    items:
+                      type: string
+                    type: array
+                  includeNamespaces:
+                    description: IncludeNamespaces lists namespaces to include
+                    items:
+                      type: string
+                    type: array
+                  namespaceSelector:
+                    description: NamespaceSelector selects namespaces by labels
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: |-
+                            A label selector requirement is a selector that contains values, a key, and an operator that
+                            relates the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: |-
+                                operator represents a key's relationship to a set of values.
+                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: |-
+                                values is an array of string values. If the operator is In or NotIn,
+                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced during a strategic
+                                merge patch.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              network:
+                description: NetworkSpec defines network policy requirements.
+                properties:
+                  allowedServiceTypes:
+                    items:
+                      type: string
+                    type: array
+                  defaultDeny:
+                    type: boolean
+                  disallowedPorts:
+                    items:
+                      type: integer
+                    type: array
+                  requiredPolicies:
+                    items:
+                      description: RequiredPolicy defines a required network policy.
+                      properties:
+                        description:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - description
+                      - name
+                      type: object
+                    type: array
+                required:
+                - defaultDeny
+                type: object
+              observability:
+                description: ObservabilitySpec defines observability requirements.
+                properties:
+                  logging:
+                    description: LoggingSpec defines logging requirements.
+                    properties:
+                      auditLog:
+                        description: AuditLogSpec defines audit log requirements.
+                        properties:
+                          minRetentionDays:
+                            type: integer
+                          required:
+                            type: boolean
+                        required:
+                        - minRetentionDays
+                        - required
+                        type: object
+                    type: object
+                  metrics:
+                    description: MetricsSpec defines metrics requirements.
+                    properties:
+                      providers:
+                        items:
+                          type: string
+                        type: array
+                      required:
+                        type: boolean
+                    required:
+                    - required
+                    type: object
+                type: object
+              podSecurity:
+                description: PodSecuritySpec defines Pod Security Standards requirements.
+                properties:
+                  audit:
+                    type: string
+                  enforce:
+                    type: string
+                  exemptions:
+                    items:
+                      description: PodSecurityExemption defines exemptions from Pod
+                        Security Standards.
+                      properties:
+                        level:
+                          type: string
+                        namespace:
+                          type: string
+                        reason:
+                          type: string
+                      required:
+                      - level
+                      - namespace
+                      - reason
+                      type: object
+                    type: array
+                  warn:
+                    type: string
+                required:
+                - audit
+                - enforce
+                - warn
+                type: object
+              policyExemptions:
+                description: PolicyExemptions defines resources exempt from this policy
+                items:
+                  description: PolicyExemptionSpec defines a policy exemption
+                  properties:
+                    approver:
+                      description: Approver who approved this exemption
+                      type: string
+                    expiresAt:
+                      description: ExpiresAt defines when the exemption expires
+                      format: date-time
+                      type: string
+                    name:
+                      description: Name of the exemption
+                      type: string
+                    namespaces:
+                      description: Namespaces covered by this exemption
+                      items:
+                        type: string
+                      type: array
+                    reason:
+                      description: Reason for the exemption
+                      type: string
+                    resources:
+                      description: Resources covered by this exemption
+                      items:
+                        description: ResourceSelectorSpec selects specific resources
+                        properties:
+                          kind:
+                            description: Kind of resource
+                            type: string
+                          labelSelector:
+                            additionalProperties:
+                              type: string
+                            description: LabelSelector for resources
+                            type: object
+                          name:
+                            description: Name of resource
+                            type: string
+                          namespace:
+                            description: Namespace of resource
+                            type: string
+                        type: object
+                      type: array
+                  required:
+                  - name
+                  type: object
+                type: array
+              policyInheritance:
+                description: PolicyInheritance defines policy composition through
+                  inheritance
+                properties:
+                  basePolicies:
+                    description: BasePolicies are parent policies to inherit from
+                    items:
+                      type: string
+                    type: array
+                  mergeStrategy:
+                    default: merge
+                    description: MergeStrategy defines how to merge inherited policies
+                    enum:
+                    - merge
+                    - override
+                    - append
+                    type: string
+                type: object
+              policyTemplate:
+                description: PolicyTemplate references a policy template to use
+                properties:
+                  name:
+                    description: Name of the policy template
+                    type: string
+                  parameters:
+                    additionalProperties:
+                      type: string
+                    description: Parameters for the template
+                    type: object
+                required:
+                - name
+                type: object
+              rbac:
+                description: RBACSpec defines RBAC requirements.
+                properties:
+                  forbiddenRules:
+                    items:
+                      description: RBACRule defines an RBAC rule.
+                      properties:
+                        apiGroup:
+                          type: string
+                        resource:
+                          type: string
+                        verbs:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - apiGroup
+                      - resource
+                      - verbs
+                      type: object
+                    type: array
+                  minimumRules:
+                    items:
+                      description: RBACRule defines an RBAC rule.
+                      properties:
+                        apiGroup:
+                          type: string
+                        resource:
+                          type: string
+                        verbs:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - apiGroup
+                      - resource
+                      - verbs
+                      type: object
+                    type: array
+                type: object
+              timeBasedActivation:
+                description: TimeBasedActivation enables time-based policy activation
+                properties:
+                  activePeriods:
+                    description: ActivePeriods defines specific time ranges
+                    items:
+                      description: TimePeriodSpec defines a time range
+                      properties:
+                        daysOfWeek:
+                          description: DaysOfWeek when this period is active
+                          items:
+                            type: string
+                          type: array
+                        endDate:
+                          description: EndDate for the period
+                          format: date-time
+                          type: string
+                        endTime:
+                          description: EndTime in HH:MM format
+                          type: string
+                        startDate:
+                          description: StartDate for the period
+                          format: date-time
+                          type: string
+                        startTime:
+                          description: StartTime in HH:MM format
+                          type: string
+                      type: object
+                    type: array
+                  enabled:
+                    default: false
+                    description: Enabled controls time-based activation
+                    type: boolean
+                  schedule:
+                    description: Schedule defines when the policy is active (cron
+                      format)
+                    type: string
+                  timezone:
+                    default: UTC
+                    description: Timezone for schedule evaluation
+                    type: string
+                type: object
+              webhooks:
+                description: Webhooks configures admission webhook behavior
+                properties:
+                  certificate:
+                    description: Certificate configures TLS certificate for webhooks
+                    properties:
+                      issuer:
+                        description: Issuer is the name of the cert-manager Issuer/ClusterIssuer
+                        type: string
+                      issuerKind:
+                        default: ClusterIssuer
+                        description: IssuerKind is the kind of issuer (Issuer or ClusterIssuer)
+                        enum:
+                        - Issuer
+                        - ClusterIssuer
+                        type: string
+                    type: object
+                  enabled:
+                    default: false
+                    description: Enabled controls whether admission webhooks are active
+                    type: boolean
+                  failurePolicy:
+                    default: Ignore
+                    description: |-
+                      FailurePolicy defines behavior when webhook fails: Ignore or Fail
+                      Ignore: continue on webhook failure (fail-open, safe default)
+                      Fail: reject request on webhook failure (fail-closed)
+                    enum:
+                    - Ignore
+                    - Fail
+                    type: string
+                  timeoutSeconds:
+                    default: 10
+                    description: TimeoutSeconds is the webhook timeout in seconds
+                    format: int32
+                    maximum: 30
+                    minimum: 1
+                    type: integer
+                type: object
+              workloads:
+                description: WorkloadsSpec defines workload security requirements.
+                properties:
+                  containers:
+                    description: ContainerSpec defines container security requirements.
+                    properties:
+                      forbidden:
+                        items:
+                          description: FieldRequirement defines a required or forbidden
+                            field.
+                          properties:
+                            exists:
+                              type: boolean
+                            key:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                          - key
+                          type: object
+                        type: array
+                      required:
+                        items:
+                          description: FieldRequirement defines a required or forbidden
+                            field.
+                          properties:
+                            exists:
+                              type: boolean
+                            key:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                          - key
+                          type: object
+                        type: array
+                    type: object
+                  images:
+                    description: ImageSpec defines image security requirements.
+                    properties:
+                      allowedRegistries:
+                        items:
+                          type: string
+                        type: array
+                      blockedRegistries:
+                        items:
+                          type: string
+                        type: array
+                      requireDigests:
+                        type: boolean
+                      requireSignatures:
+                        type: boolean
+                    required:
+                    - requireDigests
+                    - requireSignatures
+                    type: object
+                type: object
+            required:
+            - kubernetes
+            type: object
+          status:
+            description: ClusterSpecificationStatus defines the observed state of
+              ClusterSpecification
+            properties:
+              complianceScore:
+                description: ComplianceScore is the overall compliance score (0-100)
+                maximum: 100
+                minimum: 0
+                type: integer
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the ClusterSpecification's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              enforcement:
+                description: Enforcement tracks enforcement state
+                properties:
+                  active:
+                    description: Active indicates if enforcement is currently active
+                    type: boolean
+                  lastEnforcementTime:
+                    description: LastEnforcementTime is when enforcement was last
+                      updated
+                    format: date-time
+                    type: string
+                  mode:
+                    description: Mode is the current enforcement mode
+                    type: string
+                  policiesGenerated:
+                    description: PoliciesGenerated is the number of Kyverno policies
+                      generated
+                    type: integer
+                required:
+                - active
+                type: object
+              lastScanTime:
+                description: LastScanTime is the timestamp of the last compliance
+                  scan
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed
+                  by the controller
+                format: int64
+                type: integer
+              phase:
+                default: Pending
+                description: Phase represents the current phase of the cluster specification
+                enum:
+                - Pending
+                - Active
+                - Failed
+                type: string
+              summary:
+                description: Summary contains a summary of compliance check results
+                properties:
+                  driftEvents:
+                    description: DriftEvents is the number of drift events detected
+                    type: integer
+                  failedChecks:
+                    description: FailedChecks is the number of checks that failed
+                    type: integer
+                  passedChecks:
+                    description: PassedChecks is the number of checks that passed
+                    type: integer
+                  policiesEnforced:
+                    description: PoliciesEnforced is the number of policies currently
+                      enforced
+                    type: integer
+                  totalChecks:
+                    description: TotalChecks is the total number of compliance checks
+                      performed
+                    type: integer
+                required:
+                - failedChecks
+                - passedChecks
+                - totalChecks
+                type: object
+              webhooks:
+                description: Webhooks tracks webhook state
+                properties:
+                  active:
+                    description: Active indicates if webhooks are currently active
+                    type: boolean
+                  certificateReady:
+                    description: CertificateReady indicates if TLS certificate is
+                      ready
+                    type: boolean
+                  circuitBreakerTripped:
+                    description: CircuitBreakerTripped indicates if circuit breaker
+                      is active
+                    type: boolean
+                  errorRate:
+                    description: ErrorRate is the webhook error rate (0.0-1.0)
+                    type: number
+                required:
+                - active
+                - certificateReady
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

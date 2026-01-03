@@ -1,0 +1,45 @@
+{
+  "username": "kspec-bot",
+  "icon_emoji": ":shield:",
+  "channel": "#kspec-alerts",
+  "attachments": [
+    {
+      "color": "danger",
+      "title": "Configuration drift detected",
+      "text": "Cluster configuration has drifted from specification",
+      "footer": "Source: ClusterSpec/prod-cluster",
+      "ts": 1704067200,
+      "fields": [
+        {
+          "title": "Severity",
+          "value": "critical",
+          "short": true
+        },
+        {
+          "title": "Event Type",
+          "value": "DriftDetected",
+          "short": true
+        },
+        {
+          "title": "cluster",
+          "value": "prod-cluster",
+          "short": true
+        },
+        {
+          "title": "Cluster",
+          "value": "prod-cluster",
+          "short": true
+        },
+        {
+          "title": "Count",
+          "value": "3",
+          "short": true
+        }
+      ],
+      "mrkdwn_in": [
+        "text",
+        "fields"
+      ]
+    }
+  ]
+}

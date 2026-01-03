@@ -1,0 +1,229 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: driftreports.kspec.io
+spec:
+  group: kspec.io
+  names:
+    kind: DriftReport
+    listKind: DriftReportList
+    plural: driftreports
+    shortNames:
+    - dr
+    singular: driftreport
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.clusterName
+      name: Cluster
+      type: string
+    - jsonPath: .spec.clusterSpecRef.name
+      name: Cluster Spec
+      type: string
+    - jsonPath: .spec.driftDetected
+      name: Drift
+      type: boolean
+    - jsonPath: .spec.severity
+      name: Severity
+      type: string
+    - jsonPath: .status.totalEvents
+      name: Events
+      type: integer
+    - jsonPath: .spec.detectionTime
+      name: Detection Time
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DriftReport is the Schema for the driftreports API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DriftReportSpec defines the desired state of DriftReport
+            properties:
+              clusterName:
+                description: |-
+                  ClusterName is the name of the cluster that was scanned
+                  For local clusters this is "local", for remote clusters it's the ClusterTarget name
+                type: string
+              clusterSpecRef:
+                description: ClusterSpecRef references the ClusterSpecification this
+                  report is for
+                properties:
+                  name:
+                    description: Name of the referenced object
+                    type: string
+                  version:
+                    description: Version of the specification
+                    type: string
+                required:
+                - name
+                type: object
+              clusterUID:
+                description: |-
+                  ClusterUID is the unique identifier of the cluster
+                  This helps distinguish reports across different clusters
+                type: string
+              detectionTime:
+                description: DetectionTime is when drift was detected
+                format: date-time
+                type: string
+              driftDetected:
+                description: DriftDetected indicates whether drift was found
+                type: boolean
+              events:
+                description: Events contains the individual drift events detected
+                items:
+                  description: DriftEvent represents a single drift event
+                  properties:
+                    actual:
+                      description: Actual state
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    check:
+                      description: Check name for compliance drift
+                      type: string
+                    driftType:
+                      description: DriftType describes how the resource drifted
+                      enum:
+                      - deleted
+                      - modified
+                      - violation
+                      type: string
+                    expected:
+                      description: Expected state
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    message:
+                      description: Message describes the drift
+                      type: string
+                    remediation:
+                      description: Remediation describes the remediation action taken
+                      properties:
+                        action:
+                          description: Action taken (create, update, delete, report)
+                          enum:
+                          - create
+                          - update
+                          - delete
+                          - report
+                          type: string
+                        appliedAt:
+                          description: AppliedAt is when the remediation was applied
+                          format: date-time
+                          type: string
+                        error:
+                          description: Error message if remediation failed
+                          type: string
+                        status:
+                          description: Status of the remediation
+                          enum:
+                          - success
+                          - failed
+                          - pending
+                          - manual-required
+                          type: string
+                      required:
+                      - action
+                      - status
+                      type: object
+                    resource:
+                      description: Resource identifies the resource that drifted
+                      properties:
+                        kind:
+                          description: Kind of the resource
+                          type: string
+                        name:
+                          description: Name of the resource
+                          type: string
+                        namespace:
+                          description: Namespace of the resource (empty for cluster-scoped)
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                    severity:
+                      description: Severity of this drift event
+                      enum:
+                      - low
+                      - medium
+                      - high
+                      - critical
+                      type: string
+                    type:
+                      description: Type of drift (Policy, Compliance, Configuration)
+                      enum:
+                      - Policy
+                      - Compliance
+                      - Configuration
+                      type: string
+                  required:
+                  - severity
+                  - type
+                  type: object
+                type: array
+              severity:
+                description: Severity of the drift
+                enum:
+                - low
+                - medium
+                - high
+                - critical
+                type: string
+            required:
+            - clusterName
+            - clusterSpecRef
+            - detectionTime
+            - driftDetected
+            type: object
+          status:
+            description: DriftReportStatus defines the observed state of DriftReport
+            properties:
+              pendingEvents:
+                description: PendingEvents is the number of events pending remediation
+                minimum: 0
+                type: integer
+              phase:
+                default: Pending
+                description: Phase represents the current phase of drift remediation
+                enum:
+                - Pending
+                - InProgress
+                - Completed
+                - Failed
+                type: string
+              remediatedEvents:
+                description: RemediatedEvents is the number of events successfully
+                  remediated
+                minimum: 0
+                type: integer
+              totalEvents:
+                description: TotalEvents is the total number of drift events
+                minimum: 0
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
