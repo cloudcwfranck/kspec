@@ -73,25 +73,25 @@ jobs:
         run: |
           echo "=== Testing Scan Demo ==="
           cd site/demo/scripts
-          SPEC_FILE=../../../specs/examples/production.yaml ./scan.sh
+          SPEC_FILE=../../../specs/examples/strict.yaml ./scan.sh
 
       - name: Validate enforce demo
         run: |
           echo "=== Testing Enforce Demo ==="
           cd site/demo/scripts
-          SPEC_FILE=../../../specs/examples/production.yaml ./enforce.sh
+          SPEC_FILE=../../../specs/examples/strict.yaml ./enforce.sh
 
       - name: Validate drift demo
         run: |
           echo "=== Testing Drift Demo ==="
           cd site/demo/scripts
-          SPEC_FILE=../../../specs/examples/production.yaml ./drift.sh || true
+          SPEC_FILE=../../../specs/examples/strict.yaml ./drift.sh || true
 
       - name: Validate reports demo
         run: |
           echo "=== Testing Reports Demo ==="
           cd site/demo/scripts
-          SPEC_FILE=../../../specs/examples/production.yaml ./reports.sh
+          SPEC_FILE=../../../specs/examples/strict.yaml ./reports.sh
 
       - name: Validate generated artifacts
         run: |
