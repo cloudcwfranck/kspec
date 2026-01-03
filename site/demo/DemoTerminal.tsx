@@ -322,13 +322,10 @@ export default function DemoTerminal() {
         <p className="text-gray-600 text-sm">{currentTab.description}</p>
         <Link
           href={currentTab.docsLink}
-          className="text-gray-900 hover:text-gray-700 font-medium text-sm whitespace-nowrap flex items-center gap-1.5 transition-colors"
+          className="text-gray-900 hover:text-gray-700 font-medium text-sm whitespace-nowrap transition-colors"
           aria-label={`View documentation for ${currentTab.label}`}
         >
-          View docs
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          View docs →
         </Link>
       </div>
 
