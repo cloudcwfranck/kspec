@@ -1,0 +1,98 @@
+{
+  "$schema": "./demoStepsSchema.json",
+  "version": "1.0.0",
+  "tabs": [
+    {
+      "id": "scan",
+      "label": "Scan",
+      "description": "Scan your cluster to identify security and compliance gaps",
+      "steps": [
+        {
+          "command": "kspec scan --cluster prod-cluster",
+          "output": "Scanning cluster prod-cluster...\n\n✓ Connected to cluster prod-cluster\n✓ Loaded 47 security checks\n✓ Loaded 23 compliance checks\n\nRunning checks...\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSecurity Checks\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✓ pod-security-standards          PASS (85/85 pods)\n✗ container-image-signatures      FAIL (12/85 pods)\n✓ network-policy-required         PASS (3/3 namespaces)\n✗ privileged-containers           FAIL (2/85 pods)\n✓ read-only-root-filesystem       PASS (82/85 pods)\n✗ resource-limits-required        FAIL (15/85 pods)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCompliance Checks (PCI-DSS)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✓ pci-req-2.2.5-secure-config     PASS\n✓ pci-req-6.2-patch-management    PASS\n✗ pci-req-8.2.1-unique-ids        FAIL\n✓ pci-req-10.1-audit-trails       PASS\n\nScan complete!\n\nSummary:\n  Total checks:  70\n  Passed:        61 (87.1%)\n  Failed:        9  (12.9%)\n  Compliance:    87.1%\n\nNext steps:\n  • Run 'kspec enforce' to remediate findings\n  • Export report: 'kspec report export --format sarif'"
+        }
+      ],
+      "docsLink": "/docs/cli#scan"
+    },
+    {
+      "id": "enforce",
+      "label": "Enforce",
+      "description": "Automatically create and deploy Kyverno policies to enforce compliance",
+      "steps": [
+        {
+          "command": "kubectl apply -f clusterspec.yaml",
+          "output": "clusterspecification.kspec.io/production-spec created"
+        },
+        {
+          "command": "kubectl get clusterspecifications",
+          "output": "NAME              ENFORCEMENT   COMPLIANCE   AGE\nproduction-spec   enforce       87.1%        5s"
+        },
+        {
+          "command": "kubectl get clusterpolicies -l kspec.io/managed-by=kspec",
+          "output": "NAME                                AGE\nkspec-container-image-signatures    8s\nkspec-privileged-containers         8s\nkspec-resource-limits-required      8s\nkspec-pci-unique-service-accounts   8s"
+        },
+        {
+          "command": "kubectl describe clusterpolicy kspec-container-image-signatures",
+          "output": "Name:         kspec-container-image-signatures\nNamespace:\nLabels:       kspec.io/managed-by=kspec\n              kspec.io/policy-id=container-image-signatures\n              kspec.io/severity=high\nAnnotations:  kspec.io/source-spec: production-spec\n              kspec.io/description: Require container images to be signed\n\nSpec:\n  Background: true\n  Rules:\n    - Name: verify-image-signatures\n      Match:\n        Resources:\n          Kinds:\n            - Pod\n      Verify Images:\n        - Image: *\n          Attestors:\n            - Entries:\n                - Keys:\n                    Public Keys: |\n                      -----BEGIN PUBLIC KEY-----\n                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n                      -----END PUBLIC KEY-----\n\nStatus:\n  Autogen:\n    Rules:\n      - Generated: true\n  Conditions:\n    - Status: True\n      Type:   Ready\n  Ready: true"
+        }
+      ],
+      "docsLink": "/docs/enforcement"
+    },
+    {
+      "id": "drift",
+      "label": "Drift Detection",
+      "description": "Monitor and detect configuration drift from your desired state",
+      "steps": [
+        {
+          "command": "kspec drift detect",
+          "output": "Checking for configuration drift...\n\n✓ Loaded ClusterSpecification: production-spec\n✓ Loaded 4 generated policies\n✓ Scanning cluster state\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDrift Detected\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPolicy: kspec-resource-limits-required\n  Status: Modified (manual change detected)\n  Diff:\n    - spec.rules[0].validate.message: \"Resources required\"\n    + spec.rules[0].validate.message: \"Custom message\"\n\nPolicy: kspec-privileged-containers\n  Status: Deleted\n  Last seen: 2m ago\n  Action: Policy was manually deleted\n\nCluster Resource: deployment/nginx (namespace: default)\n  Status: Non-compliant (created after policy enforcement)\n  Violations:\n    • Missing resource limits (CPU/Memory)\n    • Image not signed\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSummary:\n  Policies drifted:        2\n  Non-compliant resources: 1\n  Remediation required:    Yes\n\nRecommended action:\n  kspec reconcile --fix-drift"
+        },
+        {
+          "command": "kspec reconcile --fix-drift",
+          "output": "Reconciling cluster state...\n\n→ Restoring policy: kspec-privileged-containers\n  ✓ Policy recreated\n\n→ Reverting policy: kspec-resource-limits-required\n  ✓ Manual changes reverted\n\n→ Flagging non-compliant resource: deployment/nginx\n  ✓ Added label: kspec.io/non-compliant=true\n  ✓ Alert sent to Slack channel #security-alerts\n\nReconciliation complete!\n  Policies restored: 2\n  Alerts sent: 1"
+        }
+      ],
+      "docsLink": "/docs/drift-detection"
+    },
+    {
+      "id": "reports",
+      "label": "Reports",
+      "description": "Export compliance reports in industry-standard formats",
+      "steps": [
+        {
+          "command": "kspec report export --format sarif --output report.sarif.json",
+          "output": "Generating SARIF report...\n\n✓ Scanned 85 pods across 12 namespaces\n✓ Evaluated 70 security and compliance checks\n✓ Generated 9 findings\n\nReport exported to: report.sarif.json\n\nSARIF version: 2.1.0\nFindings:\n  - Errors:   3 (high severity)\n  - Warnings: 6 (medium severity)\n\nCompatible with:\n  • GitHub Code Scanning\n  • GitLab SAST\n  • Azure DevOps\n  • SonarQube"
+        },
+        {
+          "command": "kspec report export --format oscal --compliance pci-dss",
+          "output": "Generating OSCAL report...\n\n✓ Loaded PCI-DSS 3.2.1 control catalog\n✓ Mapped 23 implemented controls\n✓ Assessed compliance status\n\nReport exported to: pci-dss-assessment.oscal.json\n\nOSCAL Profile: PCI-DSS v3.2.1\nControl families: 12\nImplemented controls: 23/35 (65.7%)\n\nControl Status:\n  Satisfied:       18 controls\n  Partially Met:    5 controls\n  Not Implemented:  12 controls\n\nGaps identified:\n  • Req 2.1: Change vendor defaults (not addressed)\n  • Req 7.1: Role-based access (partial coverage)\n  • Req 8.2.1: Unique user IDs (non-compliant resources)\n\nNext steps:\n  • Address gaps in ClusterSpecification\n  • Review partially met controls"
+        },
+        {
+          "command": "kspec report export --format json --output compliance.json",
+          "output": "Generating JSON report...\n\n✓ Collected compliance data\n✓ Serialized to JSON format\n\nReport exported to: compliance.json\n\nReport contents:\n  • Cluster metadata\n  • Policy violations (9 findings)\n  • Resource inventory (85 pods, 12 namespaces)\n  • Compliance metrics (87.1% overall)\n  • Remediation recommendations\n\nFile size: 156 KB\nSchema: kspec.io/report/v1alpha1"
+        }
+      ],
+      "docsLink": "/docs/reports"
+    },
+    {
+      "id": "metrics",
+      "label": "Metrics",
+      "description": "Monitor compliance metrics with Prometheus and Grafana",
+      "steps": [
+        {
+          "command": "kubectl get svc kspec-metrics -n kspec-system",
+          "output": "NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE\nkspec-metrics   ClusterIP   10.96.145.78    <none>        8080/TCP   5d"
+        },
+        {
+          "command": "curl -s http://localhost:8080/metrics | grep kspec_compliance",
+          "output": "# HELP kspec_compliance_score Overall compliance score (0-100)\n# TYPE kspec_compliance_score gauge\nkspec_compliance_score{cluster=\"prod-cluster\",spec=\"production-spec\"} 87.1\n\n# HELP kspec_policy_violations Total number of policy violations\n# TYPE kspec_policy_violations gauge\nkspec_policy_violations{cluster=\"prod-cluster\",severity=\"high\"} 3\nkspec_policy_violations{cluster=\"prod-cluster\",severity=\"medium\"} 6\nkspec_policy_violations{cluster=\"prod-cluster\",severity=\"low\"} 0\n\n# HELP kspec_policies_total Total number of generated policies\n# TYPE kspec_policies_total gauge\nkspec_policies_total{cluster=\"prod-cluster\",spec=\"production-spec\"} 4\n\n# HELP kspec_drift_detected Number of drifted policies\n# TYPE kspec_drift_detected gauge\nkspec_drift_detected{cluster=\"prod-cluster\"} 2\n\n# HELP kspec_reconciliation_duration_seconds Time to reconcile cluster state\n# TYPE kspec_reconciliation_duration_seconds histogram\nkspec_reconciliation_duration_seconds_bucket{le=\"1\"} 45\nkspec_reconciliation_duration_seconds_bucket{le=\"5\"} 98\nkspec_reconciliation_duration_seconds_bucket{le=\"10\"} 100\nkspec_reconciliation_duration_seconds_sum 287.4\nkspec_reconciliation_duration_seconds_count 100"
+        },
+        {
+          "command": "echo 'View metrics in Grafana: http://grafana.example.com/d/kspec-compliance'",
+          "output": "View metrics in Grafana: http://grafana.example.com/d/kspec-compliance\n\nGrafana Dashboard: kspec Compliance Overview\n\nPanels:\n  • Compliance Score (time series)\n  • Policy Violations by Severity (bar chart)\n  • Drift Detection Events (graph)\n  • Reconciliation Duration (heatmap)\n  • Top Non-Compliant Namespaces (table)\n  • Policy Enforcement Status (stat panel)\n\nAlerts configured:\n  • Compliance < 85% → #security-alerts\n  • Critical violations > 5 → PagerDuty\n  • Drift detected → Slack notification"
+        }
+      ],
+      "docsLink": "/docs/metrics"
+    }
+  ]
+}
