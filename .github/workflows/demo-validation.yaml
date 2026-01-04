@@ -1,0 +1,119 @@
+name: Demo Validation
+
+on:
+  push:
+    branches: [ main, claude/** ]
+    paths:
+      - 'site/demo/scripts/**'
+      - 'specs/examples/**'
+      - 'cmd/kspec/**'
+      - 'pkg/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'site/demo/scripts/**'
+      - 'specs/examples/**'
+  workflow_dispatch:
+
+jobs:
+  validate-demos:
+    name: Validate Demo Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build kspec
+        run: |
+          go build -o kspec ./cmd/kspec
+          chmod +x kspec
+
+      - name: Set up kind
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: kspec-test
+          node_image: kindest/node:v1.29.0
+          wait: 5m
+
+      - name: Verify cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Install cert-manager
+        run: |
+          echo "Installing cert-manager..."
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
+          kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n cert-manager
+          kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-webhook -n cert-manager
+          kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-cainjector -n cert-manager
+
+      - name: Install Kyverno
+        run: |
+          echo "Installing Kyverno v1.11.4..."
+          kubectl create namespace kyverno || true
+          kubectl apply --server-side=true -f https://github.com/kyverno/kyverno/releases/download/v1.11.4/install.yaml
+
+          # Wait for Kyverno deployments
+          kubectl wait --for=condition=available --timeout=300s deployment/kyverno-admission-controller -n kyverno
+          kubectl wait --for=condition=available --timeout=300s deployment/kyverno-background-controller -n kyverno
+          kubectl wait --for=condition=available --timeout=300s deployment/kyverno-cleanup-controller -n kyverno
+          kubectl wait --for=condition=available --timeout=300s deployment/kyverno-reports-controller -n kyverno
+
+          # Wait for webhook configurations
+          sleep 20
+          kubectl get deployments -n kyverno
+
+      - name: Validate scan demo
+        run: |
+          echo "=== Testing Scan Demo ==="
+          cd site/demo/scripts
+          SPEC_FILE=../../../specs/examples/strict.yaml ./scan.sh
+
+      - name: Validate enforce demo
+        run: |
+          echo "=== Testing Enforce Demo ==="
+          cd site/demo/scripts
+          SPEC_FILE=../../../specs/examples/strict.yaml ./enforce.sh
+
+      - name: Validate drift demo
+        run: |
+          echo "=== Testing Drift Demo ==="
+          cd site/demo/scripts
+          SPEC_FILE=../../../specs/examples/strict.yaml ./drift.sh || true
+
+      - name: Validate reports demo
+        run: |
+          echo "=== Testing Reports Demo ==="
+          cd site/demo/scripts
+          SPEC_FILE=../../../specs/examples/strict.yaml ./reports.sh
+
+      - name: Validate generated artifacts
+        run: |
+          echo "=== Verifying Generated Files ==="
+          cd site/demo/scripts
+          ls -lh compliance-report.sarif oscal-assessment.json COMPLIANCE.md
+
+          # Verify SARIF is valid JSON
+          jq empty compliance-report.sarif
+
+          # Verify OSCAL is valid JSON
+          jq empty oscal-assessment.json
+
+          # Verify Markdown was generated
+          test -s COMPLIANCE.md
+
+      - name: Upload demo artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: demo-outputs
+          path: |
+            site/demo/scripts/compliance-report.sarif
+            site/demo/scripts/oscal-assessment.json
+            site/demo/scripts/COMPLIANCE.md
