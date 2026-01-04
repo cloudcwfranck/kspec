@@ -133,6 +133,7 @@ describe('Demo Steps Data', () => {
         /^kubectl\s/,         // kubectl commands
         /^curl\s/,            // curl commands
         /^echo\s/,            // echo commands
+        /^head\s/,            // head commands (for previewing files)
       ];
 
       demoData.tabs.forEach((tab, tabIndex) => {
